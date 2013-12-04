@@ -19,7 +19,7 @@ class Block block where
 	fromRaster :: [a] -> block a
 
 	toRows :: block a -> [[a]]
-	toRows blk = map (\i -> take w $ drop (w*i) xs) $ [0..h]
+	toRows blk = map (\i -> take w $ drop (w*i) xs) $ [0..h-1]
 		where
 			xs = toRaster blk
 			w = width blk
