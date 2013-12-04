@@ -17,6 +17,10 @@ type Arithmetic = Int
 data Block4x4 a = Block4x4 [a] deriving (Eq, Show)
 data Block2x2 a = Block2x2 [a] deriving (Eq, Show)
 
+
+instance Functor Block4x4 where
+	fmap f (Block4x4 xs) = Block4x4 (map f xs)
+
 instance Block Block4x4 where
 	width _ = 4
 	height _ = 4
@@ -36,6 +40,10 @@ instance Power2Block Block4x4 where
 	fromMorton xs = fromRaster $ map (\i -> xs !! i) kMortonScan4x4
 
 
+
+instance Functor Block2x2 where
+	fmap f (Block2x2 xs) = Block2x2 (map f xs)
+
 instance Block Block2x2 where
 	width _ = 2
 	height _ = 2
@@ -52,7 +60,7 @@ instance Power2Block Block2x2 where
 
 
 type Sample4x4 = Block4x4 Sample
-type Arithmetic2x2 = [Arithmetic]
+type Arithmetic2x2 = Block2x2 Arithmetic
 type Arithmetic4x4 = Block4x4 Arithmetic
 
 
