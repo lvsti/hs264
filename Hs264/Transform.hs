@@ -10,20 +10,14 @@ import Hs264.Functions
 import Hs264.Block
 
 
-ttb = [5,11,8,10, 9,8,4,12, 1,10,11,4, 19,6,15,7] :: [Arithmetic]
-tz = [17,0,-1,0,-1,-2,0,-5,3,1,1,2,-2,-1,-5,-1] :: [Arithmetic]
-titb = [544,0,-32,0, -40,-100,0,-250, 96,40,32,80, -80,-50,-200,-50] :: [Arithmetic]
-
--- PF/Qstep
--- PF:	!i&1 && !j&1	-> a^2 = 1/4
---		i&1 && j&1		-> b^2/4 = 1/10
---		otherwise		-> ab/2 = 1/4 * sqrt(2/5)
--- kPF[4] = [0.25f, 0.15811388f, 0.15811388f, 0.1f]
 
 
--- qstep_base: Qstep values for QP = 0..5 (multiplied by 16)
--- original values: [0.625f, 0.6875f, 0.8125f, 0.875f, 1.0f, 1.125f]
---kQStepBase = [10, 11, 13, 14, 16, 18]
+
+inverse4x4Residual :: Int -> Arithmetic4x4 -> Arithmetic4x4
+inverse4x4Residual qp = inverseHT4x4Residual . (rescale4x4Residual qp)
+
+inverse4x4LumaDC :: Int -> Arithmetic4x4 -> Arithmetic4x4
+inverse4x4LumaDC qp = (rescale4x4LumaDC qp) . inverseHT4x4LumaDC
 
 
 
@@ -38,29 +32,13 @@ chromaQpFromLumaWithOffset qpl ofs
 
 
 
+kInverseHTResidualDoubled = [[2,2,2,1],
+							 [2,1,-2,-2],
+							 [2,-1,-2,2],
+							 [2,-2,2,-1]] :: [[Arithmetic]]
 
-kForwardHadamardTransform = [[1,1,1,1],
-						  	 [2,1,-1,-2],
-							 [1,-1,-1,1],
-							 [1,-2,2,-1]] :: [[Arithmetic]]
-		
-fastHadamard1D :: [Arithmetic] -> [Arithmetic]
-fastHadamard1D xs = map (sum . zipWith (*) xs) kForwardHadamardTransform
--- fastHadamard1D xs = [sum03 + sum12, diff12 + 2*diff03, sum03 - sum12, -(2*diff12) + diff03]
--- 	where
--- 		sum03 = xs !! 0 + xs !! 3
--- 		sum12 = xs !! 1 + xs !! 2
--- 		diff03 = xs !! 0 - xs !! 3
--- 		diff12 = xs !! 1 - xs !! 2
-
-
-kInverseHadamardTransformDoubled = [[2,2,2,1],
-									[2,1,-2,-2],
-									[2,-1,-2,2],
-									[2,-2,2,-1]] :: [[Arithmetic]]
-
-inverseFastHadamard1DDoubled :: [Arithmetic] -> [Arithmetic]
-inverseFastHadamard1DDoubled xs = map (sum . zipWith (*) xs) kInverseHadamardTransformDoubled
+inverseHTResidualDoubled1D :: [Arithmetic] -> [Arithmetic]
+inverseHTResidualDoubled1D xs = map (sum . zipWith (*) xs) kInverseHTResidualDoubled
 -- inverseFastHadamard1D xs = [sum02 + sum13, diff02 + diff13, diff02 - diff13, sum02 - sum13]
 -- 	where
 -- 		sum02 = xs !! 0 + xs !! 2
@@ -68,95 +46,139 @@ inverseFastHadamard1DDoubled xs = map (sum . zipWith (*) xs) kInverseHadamardTra
 -- 		diff02 = xs !! 0 - xs !! 2
 -- 		diff13 = (xs !! 1) `div` 2 - xs !! 3
 
-
-xx = [5,11,8,10,9,8,4,12,1,10,11,4,19,6,15,7] :: [Arithmetic]
-bb = Block4x4 xx
-
-ht4x4Residual :: Arithmetic4x4 -> Arithmetic4x4
-ht4x4Residual blk = fromColumns htColumns
-	where
-		rows = toRows blk
-		htRows = map fastHadamard1D rows
-		columns = transpose htRows
-		htColumns = map fastHadamard1D columns
-
 inverseHT4x4Residual :: Arithmetic4x4 -> Arithmetic4x4
 inverseHT4x4Residual blk = fromRaster $ map rescale $ concat rows
 	where
 		htColumns = toColumns blk
-		columns = map inverseFastHadamard1DDoubled htColumns
+		columns = map inverseHTResidualDoubled1D htColumns
 		htRows = transpose columns
-		rows = map inverseFastHadamard1DDoubled htRows
+		rows = map inverseHTResidualDoubled1D htRows
 		rescale = \x -> (x+128) `shiftR` 8
 
 
 
 
--- mf_base: quantizer values for QP = 0..5
--- MF[i] ~= PF[i] * 2^qbits / Qstep
--- [a2, b2d4, abd2]
-kMFBase = [[13107, 5243, 8066],
-		   [11916, 4660, 7490],
-		   [10082, 4194, 6554],
-		   [ 9362, 3647, 5825],
-		   [ 8192, 3355, 5243],
-		   [ 7282, 2893, 4559]] :: [[Arithmetic]]
-							 
-forwardHTPostScale :: Int -> [Arithmetic]
-forwardHTPostScale qp = [a2, abd2, a2, abd2,
-						 abd2, b2d4, abd2, b2d4,
-						 a2, abd2, a2, abd2,
-						 abd2, b2d4, abd2, b2d4]
-	where
-		[a2, b2d4, abd2] = kMFBase !! (qp `mod` 6)
-		
+kInverseHTLumaDC = [[1,1,1,1],
+					[1,1,-1,-1],
+					[1,-1,-1,1],
+					[1,-1,1,-1]] :: [[Arithmetic]]
 
-quantize4x4Residual :: Int -> Bool -> Arithmetic4x4 -> Arithmetic4x4
-quantize4x4Residual qp isIntra blk = fromRaster $ zipWith quantize mfs $ toRaster blk
+inverseHTLumaDC1D :: [Arithmetic] -> [Arithmetic]
+inverseHTLumaDC1D xs = map (sum . zipWith (*) xs) kInverseHTLumaDC
+
+inverseHT4x4LumaDC :: Arithmetic4x4 -> Arithmetic4x4
+inverseHT4x4LumaDC blk = fromRows rows
 	where
-		mfs = forwardHTPostScale qp
-		qbits = 15 + qp `div` 6
-		fq = (1 `shiftL` qbits) `div` (if isIntra then 3 else 6)
-		
-		quantize :: Arithmetic -> Arithmetic -> Arithmetic
-		quantize m x = signum x * ((abs x * m + fq) `shiftR` qbits)
+		htColumns = toColumns blk
+		columns = map inverseHTLumaDC1D htColumns
+		htRows = transpose columns
+		rows = map inverseHTLumaDC1D htRows
+
+
+
+kInverseHTChromaDC = [[1,1],
+					  [1,-1]] :: [[Arithmetic]]
+
+inverseHTChromaDC1D :: [Arithmetic] -> [Arithmetic]
+inverseHTChromaDC1D xs = map (sum . zipWith (*) xs) kInverseHTChromaDC
+
+inverseHT2x2ChromaDC :: Arithmetic2x2 -> Arithmetic2x2
+inverseHT2x2ChromaDC blk = fromRows rows
+	where
+		htColumns = toColumns blk
+		columns = map inverseHTChromaDC1D htColumns
+		htRows = transpose columns
+		rows = map inverseHTChromaDC1D htRows
+
 
 
 -- v_base: inverse quantizer values for QP = 0..5
 -- V[i] ~= Qstep(QP) * PF[i] * 64
 -- a2, b2, ab
-kVBase = [[10, 16, 13],
-		  [11, 18, 14],
-		  [13, 20, 16],
-		  [14, 23, 18],
-		  [16, 25, 20],
-		  [18, 29, 23]] :: [[Arithmetic]]
+kVBase4x4 = [[10, 16, 13],
+		  	 [11, 18, 14],
+		  	 [13, 20, 16],
+		  	 [14, 23, 18],
+		  	 [16, 25, 20],
+		  	 [18, 29, 23]] :: [[Arithmetic]]
 
-inverseHTRescale :: Int -> [Arithmetic]
-inverseHTRescale qp = [a2, ab, a2, ab,
-					   ab, b2, ab, b2,
-					   a2, ab, a2, ab,
-					   ab, b2, ab, b2]
+inverseHT4x4Rescale :: Int -> [Arithmetic]
+inverseHT4x4Rescale qp = [a2, ab, a2, ab,
+						  ab, b2, ab, b2,
+						  a2, ab, a2, ab,
+						  ab, b2, ab, b2]
 	where
-		[a2, b2, ab] = kVBase !! (qp `mod` 6)
+		[a2, b2, ab] = kVBase4x4 !! (qp `mod` 6)
 
 
 rescale4x4Residual :: Int -> Arithmetic4x4 -> Arithmetic4x4
-rescale4x4Residual qp blk = fromRaster $ zipWith rescale vs $ toRaster blk
+rescale4x4Residual qp blk = fromRaster $ zipWith rescaleResidual vs $ toRaster blk
 	where
-		vs = inverseHTRescale qp
-		qbits = qp `div` 6
+		vs = inverseHT4x4Rescale qp
+		qpd6 = qp `div` 6
+		rescaleResidual = if qp >= 24 then rescaleResidual4x4HighQP else rescaleResidual4x4LowQP
+				
+		rescaleResidual4x4HighQP :: Arithmetic -> Arithmetic -> Arithmetic
+		rescaleResidual4x4HighQP v x = (v*x) `shiftL` qpShift
+			where
+				qpShift = qpd6 - 4
+
+		rescaleResidual4x4LowQP :: Arithmetic -> Arithmetic -> Arithmetic
+		rescaleResidual4x4LowQP v x = (v*x + fq) `shiftR` qpShift
+			where
+				fq = 1 `shiftL` (3-qpd6)
+				qpShift = 4 - qpd6
+
+
+rescale4x4LumaDC :: Int -> Arithmetic4x4 -> Arithmetic4x4
+rescale4x4LumaDC qp blk = fmap rescaleLumaDC blk
+	where
+		vs = inverseHT4x4Rescale qp
+		v0 = vs !! 0
+		qpd6 = qp `div` 6
+		rescaleLumaDC = if qp >= 36 then rescaleLumaDCHighQP else rescaleLumaDCLowQP
 		
-		rescale :: Arithmetic -> Arithmetic -> Arithmetic
-		rescale v x = (v*x) `shiftL` qbits
+		rescaleLumaDCHighQP :: Arithmetic -> Arithmetic
+		rescaleLumaDCHighQP x = (v0*x) `shiftL` qpShift
+			where
+				qpShift = qpd6 - 6
+		
+		rescaleLumaDCLowQP :: Arithmetic -> Arithmetic
+		rescaleLumaDCLowQP x = (v0*x + fq) `shiftR` qpShift
+			where
+				fq = 1 `shiftL` (5-qpd6)
+				qpShift = 6 - qpd6
 
 
-forward4x4Residual :: Int -> Bool -> Arithmetic4x4 -> Arithmetic4x4
-forward4x4Residual qp isIntra = (quantize4x4Residual qp isIntra) . ht4x4Residual
+rescale2x2ChromaDC :: Int -> Arithmetic2x2 -> Arithmetic2x2
+rescale2x2ChromaDC qp blk = fmap rescaleChromaDC420 blk
+	where
+		vs = inverseHT4x4Rescale qp
+		v0 = vs !! 0
+		qpd6 = qp `div` 6
+		
+		rescaleChromaDC420 :: Arithmetic -> Arithmetic
+		rescaleChromaDC420 x = ((v0*x) `shiftL` qpd6) `shiftR` 5
+		
 
-inverse4x4Residual :: Int -> Arithmetic4x4 -> Arithmetic4x4
-inverse4x4Residual qp = inverseHT4x4Residual . (rescale4x4Residual qp)
+rescale4x2ChromaDC :: Int -> Arithmetic4x2 -> Arithmetic4x2
+rescale4x2ChromaDC qp blk = fmap rescaleChromaDC blk
+	where
+		vs = inverseHT4x4Rescale qp
+		v0 = vs !! 0
+		qpd6 = qp `div` 6
+		rescaleChromaDC = if qp+3 >= 36 then rescaleChromaDC422HighQP else rescaleChromaDC422LowQP
 
+		rescaleChromaDC422HighQP :: Arithmetic -> Arithmetic
+		rescaleChromaDC422HighQP x = (v0*x) `shiftL` qpShift
+			where
+				qpShift = qpd6 - 6
+		
+		rescaleChromaDC422LowQP :: Arithmetic -> Arithmetic
+		rescaleChromaDC422LowQP x = (v0*x + fq) `shiftR` qpShift
+			where
+				fq = 1 `shiftL` (5-qpd6)
+				qpShift = 6 - qpd6
 
 
 
