@@ -31,10 +31,26 @@ data Neighbors a = Neighbors { atA :: Maybe a,
 
 
 
+data Block16x16 a = Block16x16 [a] deriving (Eq, Show)
 data Block8x8 a = Block8x8 [a] deriving (Eq, Show)
 data Block4x4 a = Block4x4 [a] deriving (Eq, Show)
 data Block2x2 a = Block2x2 [a] deriving (Eq, Show)
 
+
+
+-- 16x16
+instance Functor Block16x16 where
+	fmap f (Block16x16 xs) = Block16x16 (map f xs)
+
+instance Block Block16x16 where
+	width _ = 16
+	height _ = 16
+	toRaster (Block16x16 xs) = xs
+	fromRaster = Block16x16
+
+instance SquareBlock Block16x16 where
+
+instance Power2Block Block16x16 where
 
 
 -- 8x8
@@ -96,6 +112,7 @@ instance Power2Block Block2x2 where
 
 type Sample4x4 = Block4x4 Sample
 type Sample8x8 = Block8x8 Sample
+type Sample16x16 = Block16x16 Sample
 type Arithmetic2x2 = Block2x2 Arithmetic
 type Arithmetic4x4 = Block4x4 Arithmetic
 type Arithmetic8x8 = Block8x8 Arithmetic
