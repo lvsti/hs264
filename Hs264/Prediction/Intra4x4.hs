@@ -11,18 +11,34 @@ import Hs264.Block
 import Hs264.Functions
 
 
-intra4x4 :: Neighbors [Sample] -> [Sample4x4]
-intra4x4 nb = catMaybes $ map ($ nb) preds
+data Intra4x4PredMode = KI4x4PMVertical |
+						KI4x4PMHorizontal |
+						KI4x4PMDC |
+						KI4x4PMDiagonalDownLeft |
+						KI4x4PMDiagonalDownRight |
+						KI4x4PMVerticalRight |
+						KI4x4PMHorizontalDown |
+						KI4x4PMVerticalLeft |
+						KI4x4PMHorizontalUp
+						deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+
+intra4x4ForPredMode :: Intra4x4PredMode -> Neighbors [Sample] -> Maybe Sample4x4
+intra4x4ForPredMode pm nb = intra4x4Function pm $ nb
+
+
+intra4x4Function :: Intra4x4PredMode -> (Neighbors [Sample] -> Maybe Sample4x4)
+intra4x4Function pm = functions !! fromEnum pm
 	where
-		preds = [intra4x4Vertical,
-				 intra4x4Horizontal,
-				 intra4x4DC,
-				 intra4x4DiagonalDownLeft,
-				 intra4x4DiagonalDownRight,
-				 intra4x4VerticalRight,
-				 intra4x4HorizontalDown,
-				 intra4x4VerticalLeft,
-				 intra4x4HorizontalUp]
+		functions = [intra4x4Vertical,
+					 intra4x4Horizontal,
+					 intra4x4DC,
+					 intra4x4DiagonalDownLeft,
+					 intra4x4DiagonalDownRight,
+					 intra4x4VerticalRight,
+					 intra4x4HorizontalDown,
+					 intra4x4VerticalLeft,
+					 intra4x4HorizontalUp]
 
 
 -- spec 8.3.1.2.1

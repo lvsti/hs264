@@ -11,13 +11,24 @@ import Hs264.Block
 import Hs264.Functions
 
 
-intra16x16 :: Neighbors [Sample] -> [Sample16x16]
-intra16x16 nb = catMaybes $ map ($ nb) preds
+data Intra16x16PredMode = KI16x16PMVertical |
+						  KI16x16PMHorizontal |
+						  KI16x16PMDC |
+						  KI16x16PMPlane
+						  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+
+intra16x16ForPredMode :: Intra16x16PredMode -> Neighbors [Sample] -> Maybe Sample16x16
+intra16x16ForPredMode pm nb = intra16x16Function pm $ nb
+
+
+intra16x16Function :: Intra16x16PredMode -> (Neighbors [Sample] -> Maybe Sample16x16)
+intra16x16Function pm = functions !! fromEnum pm
 	where
-		preds = [intra16x16Vertical,
-				 intra16x16Horizontal,
-				 intra16x16DC,
-				 intra16x16Plane]
+		functions = [intra16x16Vertical,
+					 intra16x16Horizontal,
+					 intra16x16DC,
+					 intra16x16Plane]
 
 
 -- spec 8.3.3.1

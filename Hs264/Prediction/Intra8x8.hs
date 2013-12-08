@@ -11,19 +11,34 @@ import Hs264.Block
 import Hs264.Functions
 
 
-intra8x8 :: Neighbors [Sample] -> [Sample8x8]
-intra8x8 nb = catMaybes $ map ($ fdNeighbors) preds
+data Intra8x8PredMode = KI8x8PMVertical |
+						KI8x8PMHorizontal |
+						KI8x8PMDC |
+						KI8x8PMDiagonalDownLeft |
+						KI8x8PMDiagonalDownRight |
+						KI8x8PMVerticalRight |
+						KI8x8PMHorizontalDown |
+						KI8x8PMVerticalLeft |
+						KI8x8PMHorizontalUp
+						deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+
+intra8x8ForPredMode :: Intra8x8PredMode -> Neighbors [Sample] -> Maybe Sample8x8
+intra8x8ForPredMode pm nb = intra8x8Function pm $ nb
+
+
+intra8x8Function :: Intra8x8PredMode -> (Neighbors [Sample] -> Maybe Sample8x8)
+intra8x8Function pm = functions !! fromEnum pm
 	where
-		fdNeighbors = i8x8Filter nb
-		preds = [intra8x8Vertical,
-				 intra8x8Horizontal,
-				 intra8x8DC,
-				 intra8x8DiagonalDownLeft,
-				 intra8x8DiagonalDownRight,
-				 intra8x8VerticalRight,
-				 intra8x8HorizontalDown,
-				 intra8x8VerticalLeft,
-				 intra8x8HorizontalUp]
+		functions = [intra8x8Vertical,
+					 intra8x8Horizontal,
+					 intra8x8DC,
+					 intra8x8DiagonalDownLeft,
+					 intra8x8DiagonalDownRight,
+					 intra8x8VerticalRight,
+					 intra8x8HorizontalDown,
+					 intra8x8VerticalLeft,
+					 intra8x8HorizontalUp]
 
 
 -- spec 8.3.2.2.1
