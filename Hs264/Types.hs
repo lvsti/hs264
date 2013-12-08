@@ -12,7 +12,22 @@ import Hs264.Block
 type Sample = Word8
 type Arithmetic = Int
 
+widen = fromIntegral :: (Sample -> Arithmetic)
+narrow = fromIntegral :: (Arithmetic -> Sample)
 
+bitDepthY = 8 :: Int
+
+
+-- block neighbor map of (*)
+-- +---+---+---+
+-- | D | B | C |
+-- +---+---+---+
+-- | A | * |
+-- +---+---+
+data Neighbors a = Neighbors { atA :: Maybe a,
+							   atB :: Maybe a,
+							   atC :: Maybe a,
+							   atD :: Maybe a } deriving (Eq, Show)
 
 data Block4x4 a = Block4x4 [a] deriving (Eq, Show)
 data Block2x2 a = Block2x2 [a] deriving (Eq, Show)

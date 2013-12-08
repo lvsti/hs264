@@ -34,6 +34,19 @@ median :: (Num a, Ord a) => a -> a -> a -> a
 median x y z = x + y + z - (min x (min y z)) - (max x (max y z))
 
 
+sfilter1D :: (Num a) => [a] -> [a] -> ([a],a)
+sfilter1D kernel samples
+	| kwidth <= swidth = (unnormedSamples, sum kernel)
+	| otherwise = error "kernel overflows sample array"
+	where
+		swidth = length samples
+		kwidth = length kernel
+		unnormedSamples = snd $ foldr kernelStep (samples, replicate swidth 0) kernel
+							
+		kernelStep :: (Num a) => a -> ([a],[a]) -> ([a],[a])
+		kernelStep k (ss@(shead:stail), acc) = (stail, zipWith (\s a -> s*k + a) ss acc)
+
+
 -- 4x4 BLOCKS
 {-
 blk4x4ToRows :: [a] -> [[a]]
