@@ -16,6 +16,7 @@ widen = fromIntegral :: (Sample -> Arithmetic)
 narrow = fromIntegral :: (Arithmetic -> Sample)
 
 bitDepthY = 8 :: Int
+bitDepthC = 8 :: Int
 
 
 -- block neighbor map of (*)
