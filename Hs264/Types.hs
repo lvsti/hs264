@@ -36,6 +36,7 @@ data Block16x16 a = Block16x16 [a] deriving (Eq, Show)
 data Block8x8 a = Block8x8 [a] deriving (Eq, Show)
 data Block4x4 a = Block4x4 [a] deriving (Eq, Show)
 data Block2x2 a = Block2x2 [a] deriving (Eq, Show)
+data Block2x4 a = Block2x4 [a] deriving (Eq, Show)
 
 
 
@@ -111,6 +112,18 @@ instance Power2Block Block2x2 where
 	fromMorton = fromRaster
 
 
+-- 2x4
+instance Functor Block2x4 where
+	fmap f (Block2x4 xs) = Block2x4 (map f xs)
+
+instance Block Block2x4 where
+	width _ = 2
+	height _ = 4
+	toRaster (Block2x4 xs) = xs
+	fromRaster = Block2x4
+	toZigzag = toRaster
+
+
 type Sample4x4 = Block4x4 Sample
 type Sample8x8 = Block8x8 Sample
 type Sample16x16 = Block16x16 Sample
@@ -118,6 +131,7 @@ type Arithmetic2x2 = Block2x2 Arithmetic
 type Arithmetic4x4 = Block4x4 Arithmetic
 type Arithmetic8x8 = Block8x8 Arithmetic
 
+type Arithmetic2x4 = Block2x4 Arithmetic
 
 
 	-- 

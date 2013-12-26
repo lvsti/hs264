@@ -46,6 +46,9 @@ sfilter1D kernel samples
 		kernelStep :: (Num a) => a -> ([a],[a]) -> ([a],[a])
 		kernelStep k (ss@(shead:stail), acc) = (stail, zipWith (\s a -> s*k + a) ss acc)
 
+dotProduct :: (Num a) => [a] -> [a] -> a
+dotProduct v1 v2 = sum $ zipWith (*) v1 v2
+
 
 -- 4x4 BLOCKS
 {-
