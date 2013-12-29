@@ -46,36 +46,6 @@ cuRChromaBlock :: Int -> CUNamedBlock
 cuRChromaBlock idx = toEnum $ fromEnum KCU4x4BlockRChroma0 + idx
 
 
-data NALUnitType = KNALUnitTypeTunnel |
-				   KNALUnitTypeSliceLayerNonIDR_RBSP |
-				   KNALUnitTypeSliceDataA_RBSP |
-				   KNALUnitTypeSliceDataB_RBSP |
-				   KNALUnitTypeSliceDataC_RBSP |
-				   KNALUnitTypeSliceLayerIDR_RBSP |
-				   KNALUnitTypeSEI_RBSP |
-				   KNALUnitTypeSequenceParameterSet_RBSP |
-				   KNALUnitTypePictureParameterSet_RBSP |
-				   KNALUnitTypeAccessUnitDelimiter_RBSP |
-				   KNALUnitTypeEndOfSequence_RBSP |
-				   KNALUnitTypeEndOfStream_RBSP |
-				   KNALUnitTypeFillerData_RBSP |
-				   -- 13..23: Reserved
-				   KNALUnitTypeReserved13 |
-				   KNALUnitTypeReserved14 |
-				   KNALUnitTypeReserved15 |
-				   KNALUnitTypeReserved16 |
-				   KNALUnitTypeReserved17 |
-				   KNALUnitTypeReserved18 |
-				   KNALUnitTypeReserved19 |
-				   KNALUnitTypeReserved20 |
-				   KNALUnitTypeReserved21 |
-				   KNALUnitTypeReserved22 |
-				   KNALUnitTypeReserved23 |
-
-				   -- 24..31: Unspecified
-				   KNALUnitTypeViewParameterSet_RBSP |
-				   KNALUnitTypeClusterParameterSet_RBSP
-				   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 
 
