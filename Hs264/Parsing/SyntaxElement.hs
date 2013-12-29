@@ -41,15 +41,17 @@ parseSynelB8 = parseSynelFn 8
 parseSynelCEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
 parseSynelCEv = error "not implemented"
 
+-- spec 7.2
 parseSynelFn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
 parseSynelFn n bt
 	| BTL.length bt < n || n > 32 = Nothing
 	| otherwise = Just (BTL.drop n bt, bitsToInt n bt)
 
+-- spec 7.2
 parseSynelIn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelIn n bt
-	| BTL.length bt < n || n > 32 = Nothing
-	| otherwise = Just (BTL.drop n bt, extendSign n $ bitsToInt n bt)
+parseSynelIn n bt =
+	parseSynelFn n bt >>= \(bt', value) ->
+	return (bt', extendSign n value)
 
 -- spec 9.1.2
 parseSynelMEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
@@ -72,6 +74,7 @@ parseSynelTEv range bt
 	| range < 1 || BTL.null bt = Nothing
 	| otherwise = Just (BTL.tail bt, if BTL.head bt then 0 else 1)
 
+-- spec 7.2
 parseSynelUn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
 parseSynelUn = parseSynelFn
 
