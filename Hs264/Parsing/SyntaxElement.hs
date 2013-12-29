@@ -20,13 +20,13 @@ extendSign n nBitValue = if isNegative then fromIntegral (-baseValue) else fromI
 
 
 data SynelType = SynelTypeAEv |
-	 			 SynelTypeB8 |
+				 SynelTypeB8 |
 				 SynelTypeCEv |
 				 SynelTypeFn Int |
 				 SynelTypeIn Int |
 				 SynelTypeMEv |
 				 SynelTypeSEv |
-				 SynelTypeTEv |
+				 SynelTypeTEv Int |
 				 SynelTypeUn Int |
 				 SynelTypeUEv deriving (Eq, Show)
 				 
@@ -51,20 +51,41 @@ parseSynelIn n bt
 	| BTL.length bt < n || n > 32 = Nothing
 	| otherwise = Just (BTL.drop n bt, extendSign n $ bitsToInt n bt)
 
+-- spec 9.1.2
 parseSynelMEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelMEv = error "not implemented"
+parseSynelMEv = error "use UE(v) and refer to 9.1.2 for the mapping"
 
+-- spec 9.1.1
 parseSynelSEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelSEv = error "not implemented"
+parseSynelSEv bt =
+	parseSynelUEv bt >>= \(bt', value) ->
+	let
+		absValue = (value + 1) `shiftR` 1
+		mappedValue = if odd value then absValue else (-absValue)
+	in
+		return (bt', mappedValue)
 
-parseSynelTEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelTEv = error "not implemented"
+-- spec 9.1.1
+parseSynelTEv :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
+parseSynelTEv range bt
+	| range > 1 = parseSynelUEv bt
+	| range < 1 || BTL.null bt = Nothing
+	| otherwise = Just (BTL.tail bt, if BTL.head bt then 0 else 1)
 
 parseSynelUn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
 parseSynelUn = parseSynelFn
 
+-- spec 9.1
 parseSynelUEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelUEv = error "not implemented"
+parseSynelUEv bt
+	| BTL.length suffix < leadingZeroBits + 1 = Nothing
+	| otherwise = Just (BTL.drop (2 * leadingZeroBits + 1) bt, value)
+	where
+		(prefix, suffix) = BTL.span (==False) bt
+		leadingZeroBits = BTL.length prefix
+		mantissa = bitsToInt leadingZeroBits $ BTL.tail suffix
+		value = (1 `shiftL` leadingZeroBits) - 1 + mantissa
+
 
 parseSynel :: SynelType -> (BitstreamBE, [Int]) -> Maybe (BitstreamBE, [Int])
 parseSynel syn = parseAndValidateSynel syn (\_ -> True)
@@ -86,7 +107,7 @@ synelFunction (SynelTypeFn n) = parseSynelFn n
 synelFunction (SynelTypeIn n) = parseSynelIn n
 synelFunction SynelTypeMEv = parseSynelMEv
 synelFunction SynelTypeSEv = parseSynelSEv
-synelFunction SynelTypeTEv = parseSynelTEv
+synelFunction (SynelTypeTEv r) = parseSynelTEv r
 synelFunction (SynelTypeUn n) = parseSynelUn n
 synelFunction SynelTypeUEv = parseSynelUEv
 
