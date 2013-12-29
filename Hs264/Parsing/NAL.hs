@@ -7,6 +7,7 @@ import Data.Bits
 import qualified Data.Bitstream.Lazy as BTL
 import qualified Data.ByteString.Lazy as BSL
 import Data.Maybe
+import Debug.Trace
 import System.IO
 
 import Hs264.Context as CTX
@@ -58,7 +59,10 @@ data NalUnit = NalUnit { nalUnitType :: NalUnitType,
 						 nalSvcExtensionFlag :: Bool,
 						 nalSvcHeader :: SvcHeader,
 						 nalMvcHeader :: MvcHeader,
-						 nalRbspBytes :: BSL.ByteString } deriving (Eq, Show)
+						 nalRbspBytes :: BSL.ByteString } deriving (Eq)
+instance Show NalUnit where
+	show nal = "NAL {" ++ show (nalUnitType nal) ++ ": refIdc=" ++ show (nalRefIdc nal) ++ ", rbsp=" ++ show (BSL.length $ nalRbspBytes nal) ++ "}"
+
 emptyNal :: NalUnit
 emptyNal = NalUnit { nalUnitType = KNalUnitType0_Unspecified,
 					 nalSvcExtensionFlag = False,
@@ -123,26 +127,30 @@ svcFromValues vs = SvcHeader { svcIdrFlag = vs !! 0 /= 0,
 							   svcOutputFlag = vs !! 8 /= 0}
 
 
-readH264ByteStream :: FilePath -> IO ()
+readH264ByteStream :: FilePath -> IO String
 readH264ByteStream fp = do
 	bs <- BSL.readFile fp
-	let x = decodeH264ByteStream bs CTX.empty
-	return () 
+	let mctx = decodeH264ByteStream bs CTX.empty
+	if isJust mctx then
+		return "cool"
+	else
+		return "error"
 
 
 decodeH264ByteStream :: BSL.ByteString -> H264Context -> Maybe H264Context
 decodeH264ByteStream bs ctx =
-	getNextNalUnitBytes bs >>= \result ->
+	getNextNalUnitBytes bs >>= \result -> 
 	let
 		(nalBytes, unparsedBytes) = result
 	in
 		do
 			nal <- parseNalUnitBytes nalBytes
-			decodeNalUnit nal ctx
-			decodeH264ByteStream unparsedBytes ctx
+			ctx' <- decodeNalUnit nal ctx
+			decodeH264ByteStream unparsedBytes ctx'
 
 
 decodeNalUnit :: NalUnit -> H264Context -> Maybe H264Context
+decodeNalUnit nal ctx | trace (show nal) False = undefined
 decodeNalUnit nal ctx = Just ctx
 
 
@@ -217,6 +225,7 @@ synelSvcReservedThree2bits = parseAndValidateSynel (SynelTypeUn 2) (==3)
 
 -- spec G.7.3.1.1
 parseNalUnitHeaderSvcExtension :: BitstreamBE -> Maybe SvcHeader
+parseNalUnitHeaderSvcExtension _ | trace "parseNalUnitHeaderSvcExtension" False = undefined
 parseNalUnitHeaderSvcExtension bt =
 	Just (bt, []) >>=
 	synelSvcIdrFlag >>=
@@ -243,6 +252,7 @@ synelMvcReservedOneBit = parseAndValidateSynel (SynelTypeUn 1) (==1)
 
 -- spec H.7.3.1.1
 parseNalUnitHeaderMvcExtension :: BitstreamBE -> Maybe MvcHeader
+parseNalUnitHeaderMvcExtension _ | trace "parseNalUnitHeaderMvcExtension" False = undefined
 parseNalUnitHeaderMvcExtension bt =
 	Just (bt, []) >>=
 	synelMvcNonIdrFlag >>=
