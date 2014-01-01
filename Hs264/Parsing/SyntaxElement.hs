@@ -178,6 +178,15 @@ sdArray sd key = arrayValue
 	where
 		(SVArray arrayValue) = sd M.! key
 
+sdSetScalar :: SynelDictionary -> Synel -> Int -> SynelDictionary
+sdSetScalar sd key value = M.insert key (SVScalar value) sd
+
+sdSetArray :: SynelDictionary -> Synel -> [Int] -> SynelDictionary
+sdSetArray sd key vs = M.insert key (SVArray vs) sd
+
+sdAppendToArray :: SynelDictionary -> Synel -> [Int] -> SynelDictionary
+sdAppendToArray sd key vs = M.insertWith (\(SVArray newvs) (SVArray oldvs) -> SVArray (oldvs ++ newvs)) key (SVArray vs) sd
+
 
 ------------------------------------------------------------------------------
 -- Syntax element parsing
@@ -185,18 +194,18 @@ sdArray sd key = arrayValue
 
 parse :: Synel -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
 parse syn (bt, sd) =
-	parseSynel bt syn sd >>= \(bt', value) ->
+	parseSynel bt syn >>= \(bt', value) ->
 	(let
 		sd' = if synelIsArray syn then
-				  M.insert syn (SVScalar value) sd
+				  sdAppendToArray sd syn [value]
 			  else
-				  M.insertWith (\(SVArray [nv]) (SVArray vs) -> SVArray (vs ++ [nv])) syn (SVArray [value]) sd
+				  sdSetScalar sd syn value
 	in
 		Just (bt', sd')
 	)
 
-parseSynel :: BitstreamBE -> Synel -> SynelDictionary -> Maybe (BitstreamBE, Int)
-parseSynel bt syn sd =
+parseSynel :: BitstreamBE -> Synel -> Maybe (BitstreamBE, Int)
+parseSynel bt syn =
 	synelFunction (synelType syn) bt >>= \(bt', value) ->
 	if (synelValidator syn) value then
 		return (bt', value)
@@ -204,5 +213,11 @@ parseSynel bt syn sd =
 		trace ("validation of synel [" ++ show syn ++ "] failed, value = " ++ show value) Nothing
 		
 
+parseLoop :: [Int] -> (Int -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)) -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parseLoop [] _ state = return state
+parseLoop vs f state =
+	return state >>=
+	f (head vs) >>=
+	parseLoop (tail vs) f
 
 
