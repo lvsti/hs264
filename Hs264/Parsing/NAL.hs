@@ -12,6 +12,8 @@ import System.IO
 
 import Hs264.Context as CTX
 import Hs264.Parsing.ByteStream
+import Hs264.Parsing.NAL.SVCExtensions
+import Hs264.Parsing.NAL.MVCExtensions
 import Hs264.Parsing.SyntaxElement
 
 
@@ -60,71 +62,17 @@ data NalUnit = NalUnit { nalUnitType :: NalUnitType,
 						 nalSvcHeader :: SvcHeader,
 						 nalMvcHeader :: MvcHeader,
 						 nalRbspBytes :: BSL.ByteString } deriving (Eq)
+
 instance Show NalUnit where
 	show nal = "NAL {" ++ show (nalUnitType nal) ++ ": refIdc=" ++ show (nalRefIdc nal) ++ ", rbsp=" ++ show (BSL.length $ nalRbspBytes nal) ++ "}"
 
 emptyNal :: NalUnit
 emptyNal = NalUnit { nalUnitType = KNalUnitType0_Unspecified,
-					 nalSvcExtensionFlag = False,
 					 nalRefIdc = 0,
+					 nalSvcExtensionFlag = False,
 					 nalSvcHeader = emptySvc,
 	 				 nalMvcHeader = emptyMvc,
 					 nalRbspBytes = BSL.empty }
-
-data MvcHeader = MvcHeader { mvcNonIdrFlag :: Bool,
-							 mvcPriorityId :: Int,
-							 mvcViewId :: Int,
-							 mvcTemporalId :: Int,
-							 mvcAnchorPicFlag :: Bool,
-							 mvcInterViewFlag :: Bool } deriving (Eq, Show)
-emptyMvc :: MvcHeader
-emptyMvc = MvcHeader { mvcNonIdrFlag = False,
-					   mvcPriorityId = 0,
-					   mvcViewId = 0,
-					   mvcTemporalId = 0,
-					   mvcAnchorPicFlag = False,
-					   mvcInterViewFlag = False }
-
-mvcFromValues :: [Int] -> MvcHeader
-mvcFromValues vs = MvcHeader { mvcNonIdrFlag = vs !! 0 /= 0,
-						   	   mvcPriorityId = vs !! 1,
-							   mvcViewId = vs !! 2,
-							   mvcTemporalId = vs !! 3,
-							   mvcAnchorPicFlag = vs !! 4 /= 0,
-							   mvcInterViewFlag = vs !! 5 /= 0 }
-
-
-data SvcHeader = SvcHeader { svcIdrFlag :: Bool,
-							 svcPriorityId :: Int,
-							 svcNoInterLayerPredFlag :: Bool,
-							 svcDependencyId :: Int,
-							 svcQualityId :: Int,
-							 svcTemporalId :: Int,
-							 svcUseRefBasePicFlag :: Bool,
-							 svcDiscardableFlag :: Bool,
-							 svcOutputFlag :: Bool } deriving (Eq, Show)
-
-emptySvc :: SvcHeader
-emptySvc = SvcHeader { svcIdrFlag = False,
-					   svcPriorityId = 0,
-					   svcNoInterLayerPredFlag = False,
-					   svcDependencyId = 0,
-					   svcQualityId = 0,
-					   svcTemporalId = 0,
-					   svcUseRefBasePicFlag = False,
-					   svcDiscardableFlag = False,
-					   svcOutputFlag = False }
-				
-svcFromValues :: [Int] -> SvcHeader	   
-svcFromValues vs = SvcHeader { svcIdrFlag = vs !! 0 /= 0,
-							   svcPriorityId = vs !! 1,
-							   svcNoInterLayerPredFlag = vs !! 2 /= 0,
-							   svcDependencyId = vs !! 3,
-							   svcQualityId = vs !! 4,
-							   svcTemporalId = vs !! 5,
-							   svcUseRefBasePicFlag = vs !! 6 /= 0,
-							   svcDiscardableFlag = vs !! 7 /= 0,
-							   svcOutputFlag = vs !! 8 /= 0}
 
 
 readH264ByteStream :: FilePath -> IO String
@@ -208,59 +156,5 @@ parseNalUnitBytes bs =
 					return nal { nalMvcHeader = mvc }
 		else
 			return nal
-
-
--- spec G.7.4.1.1
-synelSvcIdrFlag = parseSynel (SynelTypeUn 1)
-synelSvcPriorityId = parseSynel (SynelTypeUn 6)
-synelSvcNoInterLayerPredFlag = parseSynel (SynelTypeUn 1)
-synelSvcDependencyId = parseSynel (SynelTypeUn 3)
-synelSvcQualityId = parseSynel (SynelTypeUn 4)
-synelSvcTemporalId = parseSynel (SynelTypeUn 3)
-synelSvcUseRefBasePicFlag = parseSynel (SynelTypeUn 1)
-synelSvcDiscardableFlag = parseSynel (SynelTypeUn 1)
-synelSvcOutputFlag = parseSynel (SynelTypeUn 1)
-synelSvcReservedThree2bits = parseAndValidateSynel (SynelTypeUn 2) (==3)
-
-
--- spec G.7.3.1.1
-parseNalUnitHeaderSvcExtension :: BitstreamBE -> Maybe SvcHeader
-parseNalUnitHeaderSvcExtension _ | trace "parseNalUnitHeaderSvcExtension" False = undefined
-parseNalUnitHeaderSvcExtension bt =
-	Just (bt, []) >>=
-	synelSvcIdrFlag >>=
-	synelSvcPriorityId >>=
-	synelSvcNoInterLayerPredFlag >>=
-	synelSvcDependencyId >>=
-	synelSvcQualityId >>=
-	synelSvcTemporalId >>=
-	synelSvcUseRefBasePicFlag >>=
-	synelSvcDiscardableFlag >>=
-	synelSvcOutputFlag >>=
-	synelSvcReservedThree2bits >>= \(bt', vs) ->
-	return $ svcFromValues vs
-
-
--- spec H.7.4.1.1
-synelMvcNonIdrFlag = parseSynel (SynelTypeUn 1)
-synelMvcPriorityId = parseSynel (SynelTypeUn 6)
-synelMvcViewId = parseSynel (SynelTypeUn 10)
-synelMvcTemporalId = parseSynel (SynelTypeUn 3)
-synelMvcAnchorPicFlag = parseSynel (SynelTypeUn 1)
-synelMvcInterViewFlag = parseSynel (SynelTypeUn 1)
-synelMvcReservedOneBit = parseAndValidateSynel (SynelTypeUn 1) (==1)
-
--- spec H.7.3.1.1
-parseNalUnitHeaderMvcExtension :: BitstreamBE -> Maybe MvcHeader
-parseNalUnitHeaderMvcExtension _ | trace "parseNalUnitHeaderMvcExtension" False = undefined
-parseNalUnitHeaderMvcExtension bt =
-	Just (bt, []) >>=
-	synelMvcNonIdrFlag >>=
-	synelMvcPriorityId >>=
-	synelMvcViewId >>=
-	synelMvcTemporalId >>=
-	synelMvcAnchorPicFlag >>=
-	synelMvcInterViewFlag >>=
-	synelMvcReservedOneBit >>= \(bt', vs) ->
-	return $ mvcFromValues vs
+		
 
