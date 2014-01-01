@@ -3,7 +3,9 @@
 module Hs264.Parsing.SyntaxElement where
 
 import qualified Data.Bitstream.Lazy as BTL
+import qualified Data.Map.Strict as M
 import Data.Bits
+import Debug.Trace
 
 -- big endian bitstream
 type BitstreamBE = BTL.Bitstream BTL.Right
@@ -19,6 +21,9 @@ extendSign n nBitValue = if isNegative then fromIntegral (-baseValue) else fromI
 		baseValue = clearBit nBitValue (n-1)
 
 
+------------------------------------------------------------------------------
+-- Syntax element types (spec 7.2)
+------------------------------------------------------------------------------
 data SynelType = SynelTypeAEv |
 				 SynelTypeB8 |
 				 SynelTypeCEv |
@@ -28,39 +33,63 @@ data SynelType = SynelTypeAEv |
 				 SynelTypeSEv |
 				 SynelTypeTEv Int |
 				 SynelTypeUn Int |
-				 SynelTypeUEv deriving (Eq, Show)
-				 
+				 SynelTypeUEv deriving (Eq)
+
+instance Show SynelType where
+	show SynelTypeAEv = "ae(v)"
+	show SynelTypeB8 = "b(8)"
+	show SynelTypeCEv = "ce(v)"
+	show (SynelTypeFn n) = "f(" ++ show n ++ ")"
+	show (SynelTypeIn n) = "i(" ++ show n ++ ")"
+	show SynelTypeMEv = "me(v)"
+	show SynelTypeSEv = "se(v)"
+	show (SynelTypeTEv r) = "te(v|" ++ show r ++ ")"
+	show (SynelTypeUn n) = "u(" ++ show n ++ ")"
+	show SynelTypeUEv = "ue(v)"
 
 
-parseSynelAEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelAEv = error "not implemented"
+synelFunction :: SynelType -> BitstreamBE -> Maybe (BitstreamBE, Int)
+synelFunction SynelTypeAEv = parseAEv
+synelFunction SynelTypeB8 = parseB8
+synelFunction SynelTypeCEv = parseCEv
+synelFunction (SynelTypeFn n) = parseFn n
+synelFunction (SynelTypeIn n) = parseIn n
+synelFunction SynelTypeMEv = parseMEv
+synelFunction SynelTypeSEv = parseSEv
+synelFunction (SynelTypeTEv r) = parseTEv r
+synelFunction (SynelTypeUn n) = parseUn n
+synelFunction SynelTypeUEv = parseUEv
 
-parseSynelB8 :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelB8 = parseSynelFn 8
 
-parseSynelCEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelCEv = error "not implemented"
+parseAEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseAEv = error "not implemented"
+
+parseB8 :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseB8 = parseFn 8
+
+parseCEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseCEv = error "not implemented"
 
 -- spec 7.2
-parseSynelFn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelFn n bt
+parseFn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
+parseFn n bt
 	| BTL.length bt < n || n > 32 = Nothing
 	| otherwise = Just (BTL.drop n bt, bitsToInt n bt)
 
 -- spec 7.2
-parseSynelIn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelIn n bt =
-	parseSynelFn n bt >>= \(bt', value) ->
+parseIn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
+parseIn n bt =
+	parseFn n bt >>= \(bt', value) ->
 	return (bt', extendSign n value)
 
 -- spec 9.1.2
-parseSynelMEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelMEv = error "use UE(v) and refer to 9.1.2 for the mapping"
+parseMEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseMEv = error "use UE(v) and refer to 9.1.2 for the mapping"
 
 -- spec 9.1.1
-parseSynelSEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelSEv bt =
-	parseSynelUEv bt >>= \(bt', value) ->
+parseSEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseSEv bt =
+	parseUEv bt >>= \(bt', value) ->
 	let
 		absValue = (value + 1) `shiftR` 1
 		mappedValue = if odd value then absValue else (-absValue)
@@ -68,19 +97,19 @@ parseSynelSEv bt =
 		return (bt', mappedValue)
 
 -- spec 9.1.1
-parseSynelTEv :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelTEv range bt
-	| range > 1 = parseSynelUEv bt
+parseTEv :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
+parseTEv range bt
+	| range > 1 = parseUEv bt
 	| range < 1 || BTL.null bt = Nothing
 	| otherwise = Just (BTL.tail bt, if BTL.head bt then 0 else 1)
 
 -- spec 7.2
-parseSynelUn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelUn = parseSynelFn
+parseUn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
+parseUn = parseFn
 
 -- spec 9.1
-parseSynelUEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSynelUEv bt
+parseUEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseUEv bt
 	| BTL.length suffix < leadingZeroBits + 1 = Nothing
 	| otherwise = Just (BTL.drop (2 * leadingZeroBits + 1) bt, value)
 	where
@@ -90,27 +119,90 @@ parseSynelUEv bt
 		value = (1 `shiftL` leadingZeroBits) - 1 + mantissa
 
 
-parseSynel :: SynelType -> (BitstreamBE, [Int]) -> Maybe (BitstreamBE, [Int])
-parseSynel syn = parseAndValidateSynel syn (\_ -> True)
 
-parseAndValidateSynel :: SynelType -> (Int -> Bool) -> (BitstreamBE, [Int]) -> Maybe (BitstreamBE, [Int])
-parseAndValidateSynel syn vf (bt, vs) = 
-	synelFunction syn bt >>= \(bt', value) ->
-	if vf value then
-		return (bt', vs ++ [value])
+------------------------------------------------------------------------------
+-- Syntax element data type
+------------------------------------------------------------------------------
+
+data Synel = Synel { synelName :: String,
+					 synelType :: SynelType,
+					 synelIsArray :: Bool,
+					 synelValidator :: Int -> Bool }
+
+instance Eq Synel where
+	s1 == s2 = synelName s1 == synelName s2
+	
+instance Ord Synel where
+    compare s1 s2 = compare (synelName s1) (synelName s2)
+    (<) s1 s2 = (<) (synelName s1) (synelName s2)
+    (>) s1 s2 = (>) (synelName s1) (synelName s2)
+
+instance Show Synel where
+	show syn = show (synelName syn) ++ (if synelIsArray syn then "[]" else "") ++ " -> " ++ show (synelType syn)
+
+					 
+mkSynel :: String -> SynelType -> Synel
+mkSynel sn st = Synel { synelName = sn, synelType = st, synelIsArray = False, synelValidator = const True }
+
+mkSynelA :: String -> SynelType -> Synel
+mkSynelA sn st = Synel { synelName = sn, synelType = st, synelIsArray = True, synelValidator = const True }
+
+mkSynelV :: String -> SynelType -> (Int -> Bool) -> Synel
+mkSynelV sn st sv = baseSynel { synelValidator = sv }
+	where
+		baseSynel = mkSynel sn st
+
+mkSynelAV :: String -> SynelType -> (Int -> Bool) -> Synel
+mkSynelAV sn st sv = baseSynel { synelValidator = sv }
+	where
+		baseSynel = mkSynelA sn st
+
+
+------------------------------------------------------------------------------
+-- Syntax element dictionary
+------------------------------------------------------------------------------
+
+data SynelValue = SVScalar Int | SVArray [Int]
+type SynelDictionary = M.Map Synel SynelValue
+
+emptySd :: SynelDictionary
+emptySd = M.empty
+
+sdScalar :: SynelDictionary -> Synel -> Int
+sdScalar sd key = scalarValue
+	where
+		(SVScalar scalarValue) = sd M.! key
+
+sdArray :: SynelDictionary -> Synel -> [Int]
+sdArray sd key = arrayValue
+	where
+		(SVArray arrayValue) = sd M.! key
+
+
+------------------------------------------------------------------------------
+-- Syntax element parsing
+------------------------------------------------------------------------------
+
+parse :: Synel -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parse syn (bt, sd) =
+	parseSynel bt syn sd >>= \(bt', value) ->
+	(let
+		sd' = if synelIsArray syn then
+				  M.insert syn (SVScalar value) sd
+			  else
+				  M.insertWith (\(SVArray [nv]) (SVArray vs) -> SVArray (vs ++ [nv])) syn (SVArray [value]) sd
+	in
+		Just (bt', sd')
+	)
+
+parseSynel :: BitstreamBE -> Synel -> SynelDictionary -> Maybe (BitstreamBE, Int)
+parseSynel bt syn sd =
+	synelFunction (synelType syn) bt >>= \(bt', value) ->
+	if (synelValidator syn) value then
+		return (bt', value)
 	else
-		Nothing
+		trace ("validation of synel [" ++ show syn ++ "] failed, value = " ++ show value) Nothing
+		
 
 
-synelFunction :: SynelType -> BitstreamBE -> Maybe (BitstreamBE, Int)
-synelFunction SynelTypeAEv = parseSynelAEv
-synelFunction SynelTypeB8 = parseSynelB8
-synelFunction SynelTypeCEv = parseSynelCEv
-synelFunction (SynelTypeFn n) = parseSynelFn n
-synelFunction (SynelTypeIn n) = parseSynelIn n
-synelFunction SynelTypeMEv = parseSynelMEv
-synelFunction SynelTypeSEv = parseSynelSEv
-synelFunction (SynelTypeTEv r) = parseSynelTEv r
-synelFunction (SynelTypeUn n) = parseSynelUn n
-synelFunction SynelTypeUEv = parseSynelUEv
 
