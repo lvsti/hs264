@@ -1,4 +1,4 @@
--- Hs264.NAL
+-- Hs264.Parsing.NAL
 
 module Hs264.Parsing.NAL where
 
@@ -18,7 +18,9 @@ import Hs264.Parsing.SyntaxElement
 
 
 
-btFromBs = BTL.fromByteString :: BSL.ByteString -> BitstreamBE
+btFromBs :: BSL.ByteString -> BitstreamBE
+btFromBs = BTL.fromByteString
+
 
 
 data NalUnitType = KNalUnitType0_Unspecified |
@@ -118,23 +120,21 @@ unescapeRbsp bs
 
 
 -- spec 7.4.1
-synelNUForbiddenZeroBit = parseAndValidateSynel (SynelTypeFn 1) (==0)
-synelNUNalRefIdc = parseSynel (SynelTypeUn 2)
-synelNUNalUnitType = parseSynel (SynelTypeUn 5)
-synelNUSvcExtensionFlag = parseSynel (SynelTypeUn 1)
-
-
+synelForbiddenZeroBit = mkSynelV "forbidden_zero_bit" (SynelTypeFn 1) (==0)
+synelNalRefIdc = mkSynel "nal_ref_idc" (SynelTypeUn 2)
+synelNalUnitType = mkSynel "nal_unit_type" (SynelTypeUn 5)
+synelSvcExtensionFlag = mkSynel "svc_extension_flag" (SynelTypeUn 1)
 
 -- spec 7.3.1
 parseNalUnitBytes :: BSL.ByteString -> Maybe NalUnit
 parseNalUnitBytes bs =
-	Just (btFromBs bs, []) >>=
-	synelNUForbiddenZeroBit >>=
-	synelNUNalRefIdc >>=
-	synelNUNalUnitType >>= \(bt, vs) ->
+	Just (btFromBs bs, emptySd) >>=
+	parse synelForbiddenZeroBit >>=
+	parse synelNalRefIdc >>=
+	parse synelNalUnitType >>= \(bt1, sd1) ->
 	let
-		refIdc = head $ tail vs
-		nalType = (toEnum :: Int -> NalUnitType) $ last vs
+		refIdc = sdScalar sd1 synelNalRefIdc
+		nalType = (toEnum :: Int -> NalUnitType) $ sdScalar sd1 synelNalUnitType
 		hasExtHeader = nalType == KNalUnitTypePrefixRbsp || 
 					   nalType == KNalUnitTypeSliceExtensionRbsp ||
 					   nalType == KNalUnitTypeSliceDepthRbsp
@@ -144,16 +144,17 @@ parseNalUnitBytes bs =
 						 nalRbspBytes = unescapeRbsp $ BSL.drop headerSize bs }
 	in
 		if hasExtHeader then
-			synelNUSvcExtensionFlag (bt, []) >>= \(xbt, xvs) ->
+			Just (bt1, sd1) >>=
+			parse synelSvcExtensionFlag >>= \(bt11, sd11) ->
 			let
-				svcExtensionFlag = head xvs /= 0
+				svcExtensionFlag = sdScalar sd11 synelSvcExtensionFlag /= 0
 			in
 				if svcExtensionFlag then
-					parseNalUnitHeaderSvcExtension xbt >>= \svc ->
-					return nal { nalSvcHeader = svc }
+					parseNalUnitHeaderSvcExtension bt11 >>= \svc ->
+					return nal { nalSvcExtensionFlag = True, nalSvcHeader = svc }
 				else
-					parseNalUnitHeaderMvcExtension xbt >>= \mvc ->
-					return nal { nalMvcHeader = mvc }
+					parseNalUnitHeaderMvcExtension bt11 >>= \mvc ->
+					return nal { nalSvcExtensionFlag = False, nalMvcHeader = mvc }
 		else
 			return nal
 		
