@@ -162,7 +162,7 @@ mkSynelAV sn st sv = baseSynel { synelValidator = sv }
 -- Syntax element dictionary
 ------------------------------------------------------------------------------
 
-data SynelValue = SVScalar Int | SVArray [Int]
+data SynelValue = SVScalar Int | SVArray [Int] deriving (Eq,Show)
 type SynelDictionary = M.Map Synel SynelValue
 
 emptySd :: SynelDictionary
