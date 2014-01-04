@@ -7,7 +7,7 @@ import qualified Data.Bitstream.Lazy as BTL
 import Debug.Trace
 
 import Hs264.Parsing.SyntaxElement
-
+import Hs264.Types.VUI
 
 ------------------------------------------------------------------------------
 -- Video Usability Information (spec Annex E)
@@ -16,12 +16,6 @@ import Hs264.Parsing.SyntaxElement
 ------------------------------------------------------------------------------
 -- VUI Parameters
 ------------------------------------------------------------------------------
-
--- spec E.1.1
-data VuiParameters = 
-	VuiParameters {
-		-- TODO
-	} deriving (Eq, Show)
 
 emptyVui :: VuiParameters
 emptyVui = VuiParameters
