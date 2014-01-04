@@ -1,11 +1,10 @@
--- Hs264.Context
+-- Hs264.Types.Context
 
-module Hs264.Context where
+module Hs264.Types.Context where
 
 import qualified Data.Map.Strict as M
 
 import Hs264.Types.SPS
-
 
 
 data H264Context =
@@ -23,13 +22,16 @@ empty =
 	}
 
 
-addSps :: H264Context -> SequenceParameterSet -> H264Context
-addSps ctx sps = ctx { ctxSpsStore = M.insert (spsSeqParameterSetId sps) sps (ctxSpsStore ctx) }
+storeSps :: SequenceParameterSet -> H264Context -> H264Context
+storeSps sps ctx = ctx { ctxSpsStore = M.insert (spsSeqParameterSetId sps) sps (ctxSpsStore ctx) }
+
+lookupSps :: Int -> H264Context -> Maybe SequenceParameterSet
+lookupSps spsId ctx = M.lookup spsId (ctxSpsStore ctx)
 
 activeSps :: H264Context -> Maybe SequenceParameterSet
 activeSps ctx = do
 	spsId <- ctxActiveSpsId ctx
-	M.lookup spsId (ctxSpsStore ctx)
+	lookupSps spsId ctx
 
 setActiveSps :: Int -> H264Context -> Maybe H264Context
 setActiveSps spsId ctx = do

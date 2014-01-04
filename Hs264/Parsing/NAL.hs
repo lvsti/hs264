@@ -10,12 +10,12 @@ import Data.Maybe
 import Debug.Trace
 import System.IO
 
-import Hs264.Context as CTX
 import Hs264.Parsing.ByteStream
 import Hs264.Parsing.NAL.SVCExtensions
 import Hs264.Parsing.NAL.MVCExtensions
 import Hs264.Parsing.RBSP.SPS
 import Hs264.Parsing.SyntaxElement
+import Hs264.Types.Context as CTX
 import Hs264.Types.SPS
 
 
@@ -105,8 +105,8 @@ decodeNalUnit nal ctx | trace ("decoding " ++ show nal) False = undefined
 decodeNalUnit nal ctx =
 	case nalUnitType nal of
 		KNalUnitTypeSpsRbsp ->
-			parseSequenceParameterSetData bt >>= \(bt1,sps1) ->
-			return $ CTX.addSps ctx sps1
+			parseSequenceParameterSetData bt >>= \(bt1, sps1) ->
+			return $ CTX.storeSps sps1 ctx
 		otherwise ->
 			return ctx
 	where
