@@ -27,8 +27,8 @@ emptyVui :: VuiParameters
 emptyVui = VuiParameters
 	-- TODO
 
-vuiFromDictionary :: SynelDictionary -> VuiParameters
-vuiFromDictionary sd = emptyVui
+vuiFromDictionary :: SynelDictionary -> Maybe VuiParameters
+vuiFromDictionary sd = Just emptyVui
 	-- TODO
 
 
@@ -215,8 +215,8 @@ emptyHrd :: HrdParameters
 emptyHrd = HrdParameters
 	-- TODO
 
-hrdFromDictionary :: SynelDictionary -> HrdParameters
-hrdFromDictionary sd = emptyHrd
+hrdFromDictionary :: SynelDictionary -> Maybe HrdParameters
+hrdFromDictionary sd = Just emptyHrd
 	-- TODO
 
 
