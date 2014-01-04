@@ -168,6 +168,12 @@ type SynelDictionary = M.Map Synel SynelValue
 emptySd :: SynelDictionary
 emptySd = M.empty
 
+sdHasKey :: SynelDictionary -> Synel -> Bool
+sdHasKey sd key = M.member key sd
+
+sdHasKeys :: SynelDictionary -> [Synel] -> Bool
+sdHasKeys sd ks = all (sdHasKey sd) ks
+
 sdScalar :: SynelDictionary -> Synel -> Int
 sdScalar sd key = scalarValue
 	where
