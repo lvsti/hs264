@@ -14,8 +14,9 @@ import Hs264.Context as CTX
 import Hs264.Parsing.ByteStream
 import Hs264.Parsing.NAL.SVCExtensions
 import Hs264.Parsing.NAL.MVCExtensions
+import Hs264.Parsing.RBSP.SPS
 import Hs264.Parsing.SyntaxElement
-
+import Hs264.Types.SPS
 
 
 btFromBs :: BSL.ByteString -> BitstreamBE
@@ -100,8 +101,16 @@ decodeH264ByteStream bs ctx =
 
 
 decodeNalUnit :: NalUnit -> H264Context -> Maybe H264Context
-decodeNalUnit nal ctx | trace (show nal) False = undefined
-decodeNalUnit nal ctx = Just ctx
+decodeNalUnit nal ctx | trace ("decoding " ++ show nal) False = undefined
+decodeNalUnit nal ctx =
+	case nalUnitType nal of
+		KNalUnitTypeSpsRbsp ->
+			parseSequenceParameterSetData bt >>= \(bt1,sps1) ->
+			return $ CTX.addSps ctx sps1
+		otherwise ->
+			return ctx
+	where
+		bt = btFromBs $ nalRbspBytes nal
 
 
 unescapeRbsp :: BSL.ByteString -> BSL.ByteString
