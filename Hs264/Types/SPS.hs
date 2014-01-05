@@ -14,12 +14,7 @@ data SequenceParameterSet =
 	SequenceParameterSet {
 		-- profiles and levels
 		spsProfileIdc :: Int,
-		spsConstraintSet0Flag :: Bool,
-		spsConstraintSet1Flag :: Bool,
-		spsConstraintSet2Flag :: Bool,
-		spsConstraintSet3Flag :: Bool,
-		spsConstraintSet4Flag :: Bool,
-		spsConstraintSet5Flag :: Bool,
+		spsConstraintSetFlags :: [Bool],
 		spsLevelIdc :: Int,
 		-- color format
 		spsChromaFormatIdc :: Int,

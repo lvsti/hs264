@@ -63,12 +63,7 @@ emptySps :: SequenceParameterSet
 emptySps =
 	SequenceParameterSet {
 		spsProfileIdc = 0,
-		spsConstraintSet0Flag = False,
-		spsConstraintSet1Flag = False,
-		spsConstraintSet2Flag = False,
-		spsConstraintSet3Flag = False,
-		spsConstraintSet4Flag = False,
-		spsConstraintSet5Flag = False,
+		spsConstraintSetFlags = replicate 6 False,
 		spsLevelIdc = 0,
 		
 		spsChromaFormatIdc = 1,
@@ -149,27 +144,25 @@ setSpsProfilesAndLevels sd sps
 										  synelLevelIdc]
 		rawSps = sps {
 			spsProfileIdc = sdScalar sd synelProfileIdc,
-			spsConstraintSet0Flag = sdScalar sd synelConstraintSet0Flag /= 0,
-			spsConstraintSet1Flag = sdScalar sd synelConstraintSet1Flag /= 0,
-			spsConstraintSet2Flag = sdScalar sd synelConstraintSet2Flag /= 0,
-			spsConstraintSet3Flag = sdScalar sd synelConstraintSet3Flag /= 0,
-			spsConstraintSet4Flag = sdScalar sd synelConstraintSet4Flag /= 0,
-			spsConstraintSet5Flag = sdScalar sd synelConstraintSet5Flag /= 0,
+			spsConstraintSetFlags = [sdScalar sd synelConstraintSet0Flag /= 0,
+									 sdScalar sd synelConstraintSet1Flag /= 0,
+									 sdScalar sd synelConstraintSet2Flag /= 0,
+									 sdScalar sd synelConstraintSet3Flag /= 0,
+									 sdScalar sd synelConstraintSet4Flag /= 0,
+									 sdScalar sd synelConstraintSet5Flag /= 0],
 			spsLevelIdc = sdScalar sd synelLevelIdc
 		}
 
 		hasValidProfilesAndLevels :: Bool -> SequenceParameterSet -> Bool
 		hasValidProfilesAndLevels strict sps =
-			(profile /= 44 || set3Flag) &&
-			(not strict || not (profile `elem` [66,77,88] && level /= 11) || not set3Flag) &&
-			(not strict || profile `elem` [77,88,100,118,128] || not set4Flag) &&
-			(not strict || profile `elem` [77,88,100,118] || not set5Flag)
+			(profile /= 44 || (flags !! 3)) &&
+			(not strict || not (profile `elem` [66,77,88] && level /= 11) || not (flags !! 3)) &&
+			(not strict || profile `elem` [77,88,100,118,128] || not (flags !! 4)) &&
+			(not strict || profile `elem` [77,88,100,118] || not (flags !! 5))
 			where
 				profile = spsProfileIdc sps
 				level = spsLevelIdc sps
-				set3Flag = spsConstraintSet3Flag sps
-				set4Flag = spsConstraintSet4Flag sps
-				set5Flag = spsConstraintSet5Flag sps
+				flags = spsConstraintSetFlags sps
 
 
 setSpsColorAndTransform :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
