@@ -14,48 +14,6 @@ import Hs264.Types.Context as CTX
 import Hs264.Types.SPS
 
 
--------------------------------------------------------------------------------
--- Default scaling lists
--------------------------------------------------------------------------------
-kScalingListFlat4x4 = replicate 16 16
-kScalingListFlat8x8 = replicate 64 16
-
-kInferredScalingListMatrix = (replicate 6 kScalingListFlat4x4) ++ (replicate 6 kScalingListFlat8x8)
-
-
--- spec Table 7-3
-kScalingListDefault4x4Intra = [6,13,13,20,20,20,28,28, 28,28,32,32,32,37,37,42]
-kScalingListDefault4x4Inter = [10,14,14,20,20,20,24,24, 24,24,27,27,27,30,30,34]
-
--- spec Table 7-r
-kScalingListDefault8x8Intra = [6,10,10,13,11,13,16,16, 16,16,18,18,18,18,18,23,
-							   23,23,23,23,23,25,25,25, 25,25,25,25,27,27,27,27,
-							   27,27,27,27,29,29,29,29, 29,29,29,31,31,31,31,31,
-							   31,33,33,33,33,33,36,36, 36,36,38,38,38,40,40,42]
-
-kScalingListDefault8x8Inter = [9,13,13,15,13,15,17,17,
-							   17,17,19,19,19,19,19,21,
-							   21,21,21,21,21,22,22,22,
-							   22,22,22,22,24,24,24,24,
-							   24,24,24,24,25,25,25,25,
-							   25,25,25,27,27,27,27,27,
-							   27,28,28,28,28,28,30,30,
-							   30,30,32,32,32,33,33,35]
-
--- spec Table 7-2
-kDefaultScalingListMatrix = [kScalingListDefault4x4Intra,
-							 kScalingListDefault4x4Intra,
-							 kScalingListDefault4x4Intra,
-							 kScalingListDefault4x4Inter,
-							 kScalingListDefault4x4Inter,
-							 kScalingListDefault4x4Inter,
-							 kScalingListDefault8x8Intra,
-							 kScalingListDefault8x8Inter,
-							 kScalingListDefault8x8Intra,
-							 kScalingListDefault8x8Inter,
-							 kScalingListDefault8x8Intra,
-							 kScalingListDefault8x8Inter]
-
 
 -------------------------------------------------------------------------------
 -- Default values for SPS
@@ -113,9 +71,9 @@ emptySps =
 -- Value semantics for parsed SPS syntax elements
 -------------------------------------------------------------------------------
 
-spsFromDictionary :: SynelDictionary -> Maybe SequenceParameterSet
-spsFromDictionary _ | trace "spsFromDictionary" False = undefined
-spsFromDictionary sd =
+spsFromDictionary :: H264Context -> SynelDictionary -> Maybe SequenceParameterSet
+spsFromDictionary _ _ | trace "spsFromDictionary" False = undefined
+spsFromDictionary ctx sd =
 	Just emptySps >>=
 	setSpsProfilesAndLevels sd >>=
 	setSpsColorAndTransform sd >>=
@@ -395,7 +353,6 @@ synelFrameCropRightOffset = mkSynel "frame_crop_right_offset" SynelTypeUEv
 synelFrameCropTopOffset = mkSynel "frame_crop_top_offset" SynelTypeUEv
 synelFrameCropBottomOffset = mkSynel "frame_crop_bottom_offset" SynelTypeUEv
 synelVuiParametersPresentFlag = mkSynel "vui_parameters_present_flag" (SynelTypeUn 1)
-synelDeltaScale = mkSynelV "delta_scale" SynelTypeSEv (\x -> x >= -128 && x <= 127)
 
 -- derived entries (dictionary hack)
 derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
@@ -545,33 +502,6 @@ parseSequenceParameterSetRbsp ctx bt =
 			Just (bt5, sd5)
 	) >>= \(bt6, sd6) ->
 	parseRbspTrailingBits bt bt6 >>= \bt7 ->
-	spsFromDictionary sd6 >>= \sps ->
+	spsFromDictionary ctx sd6 >>= \sps ->
 	return (bt7, sps)
 		
-
--- spec 7.3.2.1.1.1
-parseScalingList :: Int -> (BitstreamBE, [Int], Bool) -> Maybe (BitstreamBE, [Int], Bool)
-parseScalingList n state = parseNextScale 8 8 0 n state
-
-parseNextScale :: Int -> Int -> Int -> Int -> (BitstreamBE, [Int], Bool) -> Maybe (BitstreamBE, [Int], Bool)
-parseNextScale _ _ _ 0 state = Just state
-parseNextScale _ _ _ _ (bt, vs, True) = Just (bt, [], True)
-parseNextScale lastSc nextSc idx r (bt, vs, useDef) =
-	if nextSc /= 0 then
-		parse synelDeltaScale (bt, emptySd) >>= \(bt1, sd1) ->
-		(let
-			delta = sdScalar sd1 synelDeltaScale
-			nextSc' = (lastSc + delta + 256) `mod` 256
-			useDef' = idx == 0 && nextSc' == 0
-			scale = if nextSc' == 0 then lastSc else nextSc'
-			vs' = vs ++ [if nextSc' == 0 then lastSc else nextSc']
-		in
-			parseNextScale scale nextSc' (idx+1) (r-1) (bt1, vs', useDef')
-		)
-	else
-		(let
-			vs' = vs ++ [lastSc]
-		in
-			parseNextScale lastSc nextSc (idx+1) (r-1) (bt, vs', useDef)
-		)
-

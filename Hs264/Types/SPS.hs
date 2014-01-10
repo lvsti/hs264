@@ -2,8 +2,8 @@
 
 module Hs264.Types.SPS where
 
+import Hs264.Types
 import Hs264.Types.VUI
-
 
 
 -------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ data SequenceParameterSet =
 		-- coefficient transformation
 		spsQpPrimeYZeroTransformBypassFlag :: Bool,
 		spsSeqScalingMatrixPresentFlag :: Bool,
-		spsScalingLists :: [[Int]],
+		spsScalingLists :: [[Arithmetic]],
 		-- frame ordering
 		spsMaxFrameNum :: Int,
 		spsPicOrderCntType :: Int,
