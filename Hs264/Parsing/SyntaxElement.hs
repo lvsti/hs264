@@ -227,3 +227,8 @@ parseForEach vs f state =
 	parseForEach (tail vs) f
 
 
+parseWhile :: ((BitstreamBE, SynelDictionary) -> Bool) -> ((BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)) -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parseWhile pr f state@(bt, sd)
+	| pr state = return state >>= f >>= parseWhile pr f
+	| otherwise = return state
+
