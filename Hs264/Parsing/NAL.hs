@@ -13,9 +13,11 @@ import System.IO
 import Hs264.Parsing.ByteStream
 import Hs264.Parsing.NAL.SVCExtensions
 import Hs264.Parsing.NAL.MVCExtensions
+import Hs264.Parsing.RBSP.PPS
 import Hs264.Parsing.RBSP.SPS
 import Hs264.Parsing.SyntaxElement
 import Hs264.Types.Context as CTX
+import Hs264.Types.PPS
 import Hs264.Types.SPS
 
 
@@ -107,6 +109,10 @@ decodeNalUnit nal ctx =
 		KNalUnitTypeSpsRbsp ->
 			parseSequenceParameterSetRbsp ctx bt >>= \(bt1, sps1) ->
 			return $ CTX.storeSps sps1 ctx
+		
+		KNalUnitTypePpsRbsp ->
+			parsePictureParameterSetRbsp ctx bt >>= \(bt2, pps2) ->
+			return $ CTX.storePps pps2 ctx
 		
 		_ ->
 			return ctx

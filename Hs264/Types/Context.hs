@@ -10,15 +10,15 @@ import Hs264.Types.SPS
 data H264Context =
 	H264Context {
 		ctxSpsStore :: M.Map Int SequenceParameterSet,
-		ctxActiveSpsId :: Maybe Int
-	} deriving (Eq, Show)
+		ctxPpsStore :: M.Map Int PictureParameterSet
+	} deriving (Show)
 
 
 empty :: H264Context
 empty =
 	H264Context {
 		ctxSpsStore = M.empty,
-		ctxActiveSpsId = Nothing
+		ctxPpsStore = M.empty
 	}
 
 
@@ -28,13 +28,9 @@ storeSps sps ctx = ctx { ctxSpsStore = M.insert (spsSeqParameterSetId sps) sps (
 lookupSps :: Int -> H264Context -> Maybe SequenceParameterSet
 lookupSps spsId ctx = M.lookup spsId (ctxSpsStore ctx)
 
-activeSps :: H264Context -> Maybe SequenceParameterSet
-activeSps ctx = do
-	spsId <- ctxActiveSpsId ctx
-	lookupSps spsId ctx
+storePps :: PictureParameterSet -> H264Context -> H264Context
+storePps pps ctx = ctx { ctxPpsStore = M.insert (ppsPicParameterSetId pps) pps (ctxPpsStore ctx) }
 
-setActiveSps :: Int -> H264Context -> Maybe H264Context
-setActiveSps spsId ctx = do
-	sps <- M.lookup spsId $ ctxSpsStore ctx
-	return ctx { ctxActiveSpsId = Just spsId }
+lookupPps :: Int -> H264Context -> Maybe PictureParameterSet
+lookupPps ppsId ctx = M.lookup ppsId (ctxPpsStore ctx)
 
