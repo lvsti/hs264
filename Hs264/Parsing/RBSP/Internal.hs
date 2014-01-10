@@ -105,6 +105,43 @@ kDefaultScalingListMatrix = [kScalingListDefault4x4Intra,
 							 kScalingListDefault8x8Inter]
 
 
+
+-- derived entries (dictionary hack)
+derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
+derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
+
+
+parseScalingMatrix :: Synel -> Int -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parseScalingMatrix lpfSynel listCount (bt, sd) =
+	Just (bt, sd) >>=
+	parseForEach [0..listCount-1] (\i (bt1, sd1) ->
+		Just (bt1, sd1) >>=
+		parse lpfSynel >>= \(bt11, sd11) ->
+		(let
+			isListPresent = (/=0) $ last $ sdArray sd11 lpfSynel
+			listSize = if i < 6 then 16 else 64
+		in
+			if isListPresent then
+				parseScalingList listSize (bt11, [], False) >>= \(bt12, vs, useDef) ->
+				(let
+					useDefInt = if useDef then 1 else 0
+					sd12 = sdAppendToArray sd11 derivedUseDefaultScalingMatrixFlag [useDefInt]
+					vs' = if useDef then replicate listSize 0 else vs
+					sd13 = sdAppendToArray sd12 derivedFlatScalingLists vs'
+				in
+					return (bt12, sd13)
+				)
+			else
+				(let
+					sd12 = sdAppendToArray sd11 derivedUseDefaultScalingMatrixFlag [0]
+					sd13 = sdAppendToArray sd12 derivedFlatScalingLists $ replicate listSize 0
+				in
+					return (bt11, sd13)
+				)
+		)
+	)
+
+
 -- spec 7.3.2.1.1.1
 parseScalingList :: Int -> (BitstreamBE, [Int], Bool) -> Maybe (BitstreamBE, [Int], Bool)
 parseScalingList n state = parseNextScale 8 8 0 n state
@@ -133,3 +170,47 @@ parseNextScale lastSc nextSc idx r (bt, vs, useDef) =
 	
 	where
 		synelDeltaScale = mkSynelV "delta_scale" SynelTypeSEv (\x -> x >= -128 && x <= 127)
+
+
+extractScalingLists :: Synel -> [[Int]] -> SynelDictionary -> Maybe [[Int]]
+extractScalingLists lpfSynel fbMatrix sd
+	| not (hasRequiredSynels && isValidData) = trace "ERROR: extractScalingLists: invalid input" Nothing
+	| otherwise = Just $ foldr (extractList fbMatrix) [] [0..length listPresentFlags-1]
+	where
+		hasRequiredSynels = sdHasKeys sd [derivedFlatScalingLists,
+							  			  derivedUseDefaultScalingMatrixFlag,
+										  lpfSynel]
+		flatList = sdArray sd derivedFlatScalingLists
+		useDefFlags = sdArray sd derivedUseDefaultScalingMatrixFlag
+		listPresentFlags = sdArray sd lpfSynel
+		listCount = length listPresentFlags
+		expectedFlatLength = if listCount <= 6 then listCount*16 else 6*16+(listCount-6)*64
+		isValidData = length useDefFlags == listCount &&
+					  length flatList == expectedFlatLength
+		
+		extractList :: [[Int]] -> Int -> [[Int]] -> [[Int]]
+		extractList fbls i ls = ls ++ [list]
+			where
+				offset = if i <= 6 then i*16 else 6*16+(i-6)*64
+				listSize = if i < 6 then 16 else 64
+				list = if listPresentFlags !! i /= 0 then
+						   if useDefFlags !! i /= 0 then
+							   kDefaultScalingListMatrix !! i
+						   else
+							   take listSize $ drop offset flatList
+					   else
+						   fallbackRule !! i
+				
+				-- spec Table 7-2
+				fallbackRule = [fbls !! 0,
+								ls !! 0,
+								ls !! 1,
+								fbls !! 3,
+								ls !! 3,
+								ls !! 4,
+								fbls !! 6,
+								fbls !! 7,
+								ls !! 6,
+								ls !! 7,
+								ls !! 8,
+								ls !! 9]

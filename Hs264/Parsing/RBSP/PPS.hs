@@ -102,33 +102,7 @@ parsePictureParameterSetRbsp ctx bt =
 			if hasScaling then
 				if isJust sps then
 					Just (bt21, sd21) >>=
--- TODO: refactor the whole scaling list parsing
-					parseForEach [0..listCount-1] (\i (btl1, sdl1) ->
-						Just (btl1, sdl1) >>=
-						parse synelPicScalingListPresentFlag >>= \(btl11, sdl11) ->
-						(let
-							isListPresent = (/=0) $ last $ sdArray sdl11 synelPicScalingListPresentFlag
-							listSize = if i < 6 then 16 else 64
-						in
-							if isListPresent then
-								parseScalingList listSize (btl11, [], False) >>= \(btl12, vs, useDef) ->
-								(let
-									useDefInt = if useDef then 1 else 0
-									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [useDefInt]
-									vs' = if useDef then replicate listSize 0 else vs
-									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists vs'
-								in
-									return (btl12, sdl13)
-								)
-							else
-								(let
-									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [0]
-									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists $ replicate listSize 0
-								in
-									return (btl11, sdl13)
-								)
-						)
-					)
+					parseScalingMatrix synelPicScalingListPresentFlag listCount
 				else
 					trace ("ERROR: parsePictureParameterSetRbsp: referenced SPS (" ++ show spsId ++ ") not found") Nothing
 			else
@@ -171,10 +145,6 @@ synelTransform8x8ModeFlag = mkSynel "transform_8x8_mode_flag" (SynelTypeUn 1)
 synelPicScalingMatrixPresentFlag = mkSynel "pic_scaling_matrix_present_flag" (SynelTypeUn 1)
 synelPicScalingListPresentFlag = mkSynelA "pic_scaling_list_present_flag" (SynelTypeUn 1)
 synelSecondChromaQpIndexOffset = mkSynelV "second_chroma_qp_index_offset" SynelTypeSEv (\x -> x >= -12 && x <= 12)
-
--- derived entries (dictionary hack)
-derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
-derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
 
 
 
@@ -340,10 +310,11 @@ setPpsOptionalFields sps sd pps
 		hasPicScalingMatrix = sdScalar sd synelPicScalingMatrixPresentFlag /= 0
 		hasSeqScalingMatrix = spsSeqScalingMatrixPresentFlag sps
 		seqScalingLists = spsScalingLists sps
+		fallbackMatrix = if hasSeqScalingMatrix then seqScalingLists else kDefaultScalingListMatrix
 		maybeMatrix = if hasPicScalingMatrix then
-						  extractPpsScalingLists sd
+						  extractScalingLists synelPicScalingListPresentFlag fallbackMatrix sd
 					  else
-						  Just kInferredScalingListMatrix
+						  Just seqScalingLists
 		optPps = pps {
 			ppsTransform8x8ModeFlag = sdScalar sd synelTransform8x8ModeFlag /= 0,
 			ppsSecondChromaQpIndexOffset = sdScalar sd synelSecondChromaQpIndexOffset,
@@ -351,61 +322,4 @@ setPpsOptionalFields sps sd pps
 			ppsScalingLists = fromJust maybeMatrix
 		}
 
-		extractPpsScalingLists :: SynelDictionary -> Maybe [[Int]]
-		extractPpsScalingLists sd
-			| not (hasRequiredSynels && isValidData) = trace "ERROR: extractPpsScalingLists: invalid input" Nothing
-			| otherwise = Just $ foldr extractPpsList [] [0..length listPresentFlags-1]
-			where
-				hasRequiredSynels = sdHasKeys sd [derivedFlatScalingLists,
-									  			  derivedUseDefaultScalingMatrixFlag,
-												  synelPicScalingListPresentFlag]
-				flatList = sdArray sd derivedFlatScalingLists
-				useDefFlags = sdArray sd derivedUseDefaultScalingMatrixFlag
-				listPresentFlags = sdArray sd synelPicScalingListPresentFlag
-				listCount = length listPresentFlags
-				expectedFlatLength = if listCount <= 6 then listCount*16 else 6*16+(listCount-6)*64
-				isValidData = length useDefFlags == listCount &&
-							  length flatList == expectedFlatLength
-				
-				extractPpsList :: Int -> [[Int]] -> [[Int]]
-				extractPpsList i ls = ls ++ [list]
-					where
-						offset = if i <= 6 then i*16 else 6*16+(i-6)*64
-						listSize = if i < 6 then 16 else 64
-						list = if listPresentFlags !! i /= 0 then
-								   if useDefFlags !! i /= 0 then
-									   kDefaultScalingListMatrix !! i
-								   else
-									   take listSize $ drop offset flatList
-							   else
-								   if hasSeqScalingMatrix then
-									   fallbackB !! i
-								   else
-									   fallbackA !! i
-						
-						-- spec Table 7-2
-						fallbackA = [kDefaultScalingListMatrix !! 0,
-									 ls !! 0,
-									 ls !! 1,
-									 kDefaultScalingListMatrix !! 3,
-									 ls !! 3,
-									 ls !! 4,
-									 kDefaultScalingListMatrix !! 6,
-									 kDefaultScalingListMatrix !! 7,
-									 ls !! 6,
-									 ls !! 7,
-									 ls !! 8,
-									 ls !! 9]
-						fallbackB = [seqScalingLists !! 0,
-									 ls !! 0,
-									 ls !! 1,
-									 seqScalingLists !! 3,
-									 ls !! 3,
-									 ls !! 4,
-									 seqScalingLists !! 6,
-									 seqScalingLists !! 7,
-									 ls !! 6,
-									 ls !! 7,
-									 ls !! 8,
-									 ls !! 9]
 

@@ -22,7 +22,7 @@ import Hs264.Types.SPS
 
 -- spec 7.3.2.1.1
 parseSequenceParameterSetRbsp :: H264Context -> BitstreamBE -> Maybe (BitstreamBE, SequenceParameterSet)
-parseSequenceParameterSetRbsp _ _ | trace "parseSequenceParameterSetData" False = undefined
+parseSequenceParameterSetRbsp _ _ | trace "parseSequenceParameterSetRbsp" False = undefined
 parseSequenceParameterSetRbsp ctx bt =
 	Just (bt, emptySd) >>=
 	parse synelProfileIdc >>=
@@ -62,32 +62,7 @@ parseSequenceParameterSetRbsp ctx bt =
 			in
 				if hasScaling then
 					Just (bt13, sd13) >>=
-					parseForEach [0..listCount-1] (\i (btl1, sdl1) ->
-						Just (btl1, sdl1) >>=
-						parse synelSeqScalingListPresentFlag >>= \(btl11, sdl11) ->
-						(let
-							isListPresent = (/=0) $ last $ sdArray sdl11 synelSeqScalingListPresentFlag
-							listSize = if i < 6 then 16 else 64
-						in
-							if isListPresent then
-								parseScalingList listSize (btl11, [], False) >>= \(btl12, vs, useDef) ->
-								(let
-									useDefInt = if useDef then 1 else 0
-									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [useDefInt]
-									vs' = if useDef then replicate listSize 0 else vs
-									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists vs'
-								in
-									return (btl12, sdl13)
-								)
-							else
-								(let
-									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [0]
-									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists $ replicate listSize 0
-								in
-									return (btl11, sdl13)
-								)
-						)
-					)
+					parseScalingMatrix synelSeqScalingListPresentFlag listCount
 				else
 					Just (bt13, sd13)
 			)
@@ -206,10 +181,6 @@ synelFrameCropRightOffset = mkSynel "frame_crop_right_offset" SynelTypeUEv
 synelFrameCropTopOffset = mkSynel "frame_crop_top_offset" SynelTypeUEv
 synelFrameCropBottomOffset = mkSynel "frame_crop_bottom_offset" SynelTypeUEv
 synelVuiParametersPresentFlag = mkSynel "vui_parameters_present_flag" (SynelTypeUn 1)
-
--- derived entries (dictionary hack)
-derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
-derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
 
 
 
@@ -343,8 +314,9 @@ setSpsColorAndTransform sd sps
 		bdChromaM8 = sdScalar sd synelBitDepthChromaMinus8
 		separateCP = if chromaFormatIdc == 3 then sdScalar sd synelSeparateColourPlaneFlag /= 0 else False
 		hasScalingMatrix = sdScalar sd synelSeqScalingMatrixPresentFlag /= 0
+		fallbackMatrix = kDefaultScalingListMatrix
 		maybeMatrix = if hasScalingMatrix then
-						  extractScalingLists sd
+						  extractScalingLists synelSeqScalingListPresentFlag fallbackMatrix sd
 					  else
 						  Just kInferredScalingListMatrix
 		colorSps = sps {
@@ -359,48 +331,6 @@ setSpsColorAndTransform sd sps
 			spsSeqScalingMatrixPresentFlag = hasScalingMatrix,
 			spsScalingLists = fromJust maybeMatrix
 		}
-		
-		extractScalingLists :: SynelDictionary -> Maybe [[Int]]
-		extractScalingLists sd
-			| not (hasRequiredSynels && isValidData) = trace "ERROR: extractScalingLists: invalid input" Nothing
-			| otherwise = Just $ foldr extractList [] [0..length listPresentFlags-1]
-			where
-				hasRequiredSynels = sdHasKeys sd [derivedFlatScalingLists,
-									  			  derivedUseDefaultScalingMatrixFlag,
-												  synelSeqScalingListPresentFlag]
-				flatList = sdArray sd derivedFlatScalingLists
-				useDefFlags = sdArray sd derivedUseDefaultScalingMatrixFlag
-				listPresentFlags = sdArray sd synelSeqScalingListPresentFlag
-				listCount = length listPresentFlags
-				expectedFlatLength = if listCount <= 6 then listCount*16 else 6*16+(listCount-6)*64
-				isValidData = length useDefFlags == listCount &&
-							  length flatList == expectedFlatLength
-				
-				extractList :: Int -> [[Int]] -> [[Int]]
-				extractList i ls = ls ++ [list]
-					where
-						offset = if i <= 6 then i*16 else 6*16+(i-6)*64
-						listSize = if i < 6 then 16 else 64
-						list = if listPresentFlags !! i /= 0 then
-								   if useDefFlags !! i /= 0 then
-									   kDefaultScalingListMatrix !! i
-								   else
-									   take listSize $ drop offset flatList
-							   else
-								   fallbackA !! i
-						-- spec Table 7-2
-						fallbackA = [kDefaultScalingListMatrix !! 0,
-									 ls !! 0,
-									 ls !! 1,
-									 kDefaultScalingListMatrix !! 3,
-									 ls !! 3,
-									 ls !! 4,
-									 kDefaultScalingListMatrix !! 6,
-									 kDefaultScalingListMatrix !! 7,
-									 ls !! 6,
-									 ls !! 7,
-									 ls !! 8,
-									 ls !! 9]
 
 
 setSpsFrameOrdering :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
