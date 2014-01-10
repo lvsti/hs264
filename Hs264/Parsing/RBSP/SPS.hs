@@ -442,7 +442,7 @@ parseSequenceParameterSetData bt =
 			in
 				if hasScaling then
 					Just (bt13, sd13) >>=
-					parseLoop [0..listCount-1] (\i (btl1, sdl1) ->
+					parseForEach [0..listCount-1] (\i (btl1, sdl1) ->
 						Just (btl1, sdl1) >>=
 						parse synelSeqScalingListPresentFlag >>= \(btl11, sdl11) ->
 						(let
@@ -494,7 +494,7 @@ parseSequenceParameterSetData bt =
 				in
 					if numRefFramesInPoc > 0 then
 						Just (bt21, sd21) >>=
-						parseLoop [0..numRefFramesInPoc-1] (\_ (bt211, sd211) ->
+						parseForEach [0..numRefFramesInPoc-1] (\_ (bt211, sd211) ->
 							Just (bt211, sd211) >>=
 							parse synelOffsetForRefFrame
 						)

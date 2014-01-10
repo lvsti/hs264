@@ -219,11 +219,11 @@ parseSynel bt syn =
 		trace ("validation of synel [" ++ show syn ++ "] failed, value = " ++ show value) Nothing
 		
 
-parseLoop :: [Int] -> (Int -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)) -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
-parseLoop [] _ state = return state
-parseLoop vs f state =
+parseForEach :: [Int] -> (Int -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)) -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parseForEach [] _ state = return state
+parseForEach vs f state =
 	return state >>=
 	f (head vs) >>=
-	parseLoop (tail vs) f
+	parseForEach (tail vs) f
 
 

@@ -240,7 +240,7 @@ parseHrdParameters (bt, sd) =
 		cpbCntMinus1 = sdScalar sd1 synelCpbCntMinus1
 	in
 		Just (bt1, sd1) >>=
-		parseLoop [0..cpbCntMinus1] (\_ (bt11, sd11) ->
+		parseForEach [0..cpbCntMinus1] (\_ (bt11, sd11) ->
 			Just (bt11, sd11) >>=
 			parse synelBitRateValueMinus1 >>=
 			parse synelCpbSizeValueMinus1 >>=
