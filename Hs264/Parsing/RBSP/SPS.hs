@@ -16,6 +16,204 @@ import Hs264.Types.SPS
 
 
 -------------------------------------------------------------------------------
+-- SPS syntax element parsing
+-------------------------------------------------------------------------------
+
+
+-- spec 7.3.2.1.1
+parseSequenceParameterSetRbsp :: H264Context -> BitstreamBE -> Maybe (BitstreamBE, SequenceParameterSet)
+parseSequenceParameterSetRbsp _ _ | trace "parseSequenceParameterSetData" False = undefined
+parseSequenceParameterSetRbsp ctx bt =
+	Just (bt, emptySd) >>=
+	parse synelProfileIdc >>=
+	parse synelConstraintSet0Flag >>=
+	parse synelConstraintSet1Flag >>=
+	parse synelConstraintSet2Flag >>=
+	parse synelConstraintSet3Flag >>=
+	parse synelConstraintSet4Flag >>=
+	parse synelConstraintSet5Flag >>=
+	parse synelReservedZero2bits >>=
+	parse synelLevelIdc >>=
+	parse synelSeqParameterSetId >>= \(bt1, sd1) ->
+	(let
+		profileIdc = sdScalar sd1 synelProfileIdc
+		hasColorInfo = profileIdc `elem` [100,110,122,244,44,83,86,118,128,138]
+	in
+		if hasColorInfo then
+			Just (bt1, sd1) >>=
+			parse synelChromaFormatIdc >>= \(bt12, sd12) ->
+			(let
+				chromaFormatIdc = sdScalar sd12 synelChromaFormatIdc
+			in
+				if chromaFormatIdc == 3 then
+					Just (bt12, sd12) >>=
+					parse synelSeparateColourPlaneFlag
+				else
+					Just (bt12, sd12)
+			) >>=
+			parse synelBitDepthLumaMinus8 >>=
+			parse synelBitDepthChromaMinus8 >>=
+			parse synelQpPrimeYZeroTransformBypassFlag >>=
+			parse synelSeqScalingMatrixPresentFlag >>= \(bt13, sd13) ->
+			(let
+				hasScaling = sdScalar sd13 synelSeqScalingMatrixPresentFlag /= 0
+				chromaFormatIdc = sdScalar sd13 synelChromaFormatIdc
+				listCount = if chromaFormatIdc == 3 then 12 else 8
+			in
+				if hasScaling then
+					Just (bt13, sd13) >>=
+					parseForEach [0..listCount-1] (\i (btl1, sdl1) ->
+						Just (btl1, sdl1) >>=
+						parse synelSeqScalingListPresentFlag >>= \(btl11, sdl11) ->
+						(let
+							isListPresent = (/=0) $ last $ sdArray sdl11 synelSeqScalingListPresentFlag
+							listSize = if i < 6 then 16 else 64
+						in
+							if isListPresent then
+								parseScalingList listSize (btl11, [], False) >>= \(btl12, vs, useDef) ->
+								(let
+									useDefInt = if useDef then 1 else 0
+									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [useDefInt]
+									vs' = if useDef then replicate listSize 0 else vs
+									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists vs'
+								in
+									return (btl12, sdl13)
+								)
+							else
+								(let
+									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [0]
+									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists $ replicate listSize 0
+								in
+									return (btl11, sdl13)
+								)
+						)
+					)
+				else
+					Just (bt13, sd13)
+			)
+		else
+			Just (bt1, sd1)
+	) >>=
+	parse synelLog2MaxFrameNumMinus4 >>=
+	parse synelPicOrderCntType >>= \(bt2, sd2) ->
+	(let
+		picOrderCntType = sdScalar sd2 synelPicOrderCntType
+	in
+		if picOrderCntType == 0 then
+			Just (bt2, sd2) >>=
+			parse synelLog2MaxPicOrderCntLsbMinus4
+		else
+			if picOrderCntType == 1 then
+				Just (bt2, sd2) >>=
+				parse synelDeltaPicOrderAlwaysZeroFlag >>=
+				parse synelOffsetForNonRefPic >>=
+				parse synelOffsetForTopToBottomField >>=
+				parse synelNumRefFramesInPicOrderCntCycle >>= \(bt21, sd21) ->
+				(let
+					numRefFramesInPoc = sdScalar sd21 synelNumRefFramesInPicOrderCntCycle
+				in
+					if numRefFramesInPoc > 0 then
+						Just (bt21, sd21) >>=
+						parseForEach [0..numRefFramesInPoc-1] (\_ (bt211, sd211) ->
+							Just (bt211, sd211) >>=
+							parse synelOffsetForRefFrame
+						)
+					else
+						Just (bt21, sd21)
+				)	
+			else
+				Just (bt2, sd2)
+	) >>=
+	parse synelMaxNumRefFrames >>=
+	parse synelGapsInFrameNumValueAllowedFlag >>=
+	parse synelPicWidthInMbsMinus1 >>=
+	parse synelPicHeightInMapUnitsMinus1 >>=
+	parse synelFrameMbsOnlyFlag >>= \(bt3, sd3) ->
+	(let
+		frameMbsOnly = sdScalar sd3 synelFrameMbsOnlyFlag /= 0
+	in
+		if frameMbsOnly then
+			Just (bt3, sd3)
+		else
+			Just (bt3, sd3) >>=
+			parse synelMbAdaptiveFrameFieldFlag
+	) >>=
+	parse synelDirect8x8InferenceFlag >>=
+	parse synelFrameCroppingFlag >>= \(bt4, sd4) ->
+	(let
+		needsCropping = sdScalar sd4 synelFrameCroppingFlag /= 0
+	in
+		if needsCropping then
+			Just (bt4, sd4) >>=
+			parse synelFrameCropLeftOffset >>=
+			parse synelFrameCropRightOffset >>=
+			parse synelFrameCropTopOffset >>=
+			parse synelFrameCropBottomOffset
+		else
+			Just (bt4, sd4)
+	) >>=
+	parse synelVuiParametersPresentFlag >>= \(bt5, sd5) ->
+	(let
+		hasVuiParams = sdScalar sd5 synelVuiParametersPresentFlag /= 0
+	in
+		if hasVuiParams then
+			Just (bt5, sd5) >>=
+			parseVuiParameters
+		else
+			Just (bt5, sd5)
+	) >>= \(bt6, sd6) ->
+	parseRbspTrailingBits bt bt6 >>= \bt7 ->
+	spsFromDictionary ctx sd6 >>= \sps ->
+	return (bt7, sps)
+		
+
+-- spec 7.4.2.1.1
+synelProfileIdc = mkSynel "profile_idc" (SynelTypeUn 8)
+synelConstraintSet0Flag = mkSynel "constraint_set0_flag" (SynelTypeUn 1)
+synelConstraintSet1Flag = mkSynel "constraint_set1_flag" (SynelTypeUn 1)
+synelConstraintSet2Flag = mkSynel "constraint_set2_flag" (SynelTypeUn 1)
+synelConstraintSet3Flag = mkSynel "constraint_set3_flag" (SynelTypeUn 1)
+synelConstraintSet4Flag = mkSynel "constraint_set4_flag" (SynelTypeUn 1)
+synelConstraintSet5Flag = mkSynel "constraint_set5_flag" (SynelTypeUn 1)
+synelReservedZero2bits = mkSynelV "reserved_zero_2bits" (SynelTypeUn 2) (==0)
+synelLevelIdc = mkSynel "level_idc" (SynelTypeUn 8)
+synelSeqParameterSetId = mkSynelV "seq_parameter_set_id" SynelTypeUEv (<=31)
+synelChromaFormatIdc = mkSynelV "chroma_format_idc" SynelTypeUEv (<=3)
+synelSeparateColourPlaneFlag = mkSynel "separate_colour_plane_flag" (SynelTypeUn 1)
+synelBitDepthLumaMinus8 = mkSynelV "bit_depth_luma_minus8" SynelTypeUEv (<=6)
+synelBitDepthChromaMinus8 = mkSynelV "bit_depth_chroma_minus8" SynelTypeUEv (<=6)
+synelQpPrimeYZeroTransformBypassFlag = mkSynel "qpprime_y_zero_transform_bypass_flag" (SynelTypeUn 1)
+synelSeqScalingMatrixPresentFlag = mkSynel "seq_scaling_matrix_present_flag" (SynelTypeUn 1)
+synelSeqScalingListPresentFlag = mkSynelA "seq_scaling_list_present_flag" (SynelTypeUn 1)
+synelLog2MaxFrameNumMinus4 = mkSynelV "log2_max_frame_num_minus4" SynelTypeUEv (<=12)
+synelPicOrderCntType = mkSynelV "pic_order_cnt_type" SynelTypeUEv (<=2)
+synelLog2MaxPicOrderCntLsbMinus4 = mkSynelV "log2_max_pic_order_cnt_lsb_minus4" SynelTypeUEv (<=12)
+synelDeltaPicOrderAlwaysZeroFlag = mkSynel "delta_pic_order_always_zero_flag" (SynelTypeUn 1)
+synelOffsetForNonRefPic = mkSynelV "offset_for_non_ref_pic" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
+synelOffsetForTopToBottomField = mkSynelV "offset_for_top_to_bottom_field" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
+synelNumRefFramesInPicOrderCntCycle = mkSynelV "num_ref_frames_in_pic_order_cnt_cycle" SynelTypeUEv (<=255)
+synelOffsetForRefFrame = mkSynelAV "offset_for_ref_frame" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
+synelMaxNumRefFrames = mkSynel "max_num_ref_frames" SynelTypeUEv -- (<=MaxDpbFrames)
+synelGapsInFrameNumValueAllowedFlag = mkSynel "gaps_in_frame_num_value_allowed_flag" (SynelTypeUn 1)
+synelPicWidthInMbsMinus1 = mkSynel "pic_width_in_mbs_minus1" SynelTypeUEv
+synelPicHeightInMapUnitsMinus1 = mkSynel "pic_height_in_map_units_minus1" SynelTypeUEv
+synelFrameMbsOnlyFlag = mkSynel "frame_mbs_only_flag" (SynelTypeUn 1)
+synelMbAdaptiveFrameFieldFlag = mkSynel "mb_adaptive_frame_field_flag" (SynelTypeUn 1)
+synelDirect8x8InferenceFlag = mkSynel "direct_8x8_inference_flag" (SynelTypeUn 1)
+synelFrameCroppingFlag = mkSynel "frame_cropping_flag" (SynelTypeUn 1)
+synelFrameCropLeftOffset = mkSynel "frame_crop_left_offset" SynelTypeUEv
+synelFrameCropRightOffset = mkSynel "frame_crop_right_offset" SynelTypeUEv
+synelFrameCropTopOffset = mkSynel "frame_crop_top_offset" SynelTypeUEv
+synelFrameCropBottomOffset = mkSynel "frame_crop_bottom_offset" SynelTypeUEv
+synelVuiParametersPresentFlag = mkSynel "vui_parameters_present_flag" (SynelTypeUn 1)
+
+-- derived entries (dictionary hack)
+derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
+derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
+
+
+
+-------------------------------------------------------------------------------
 -- Default values for SPS
 -------------------------------------------------------------------------------
 
@@ -309,199 +507,3 @@ setSpsVui sd sps
 			spsVuiParameters = if hasVui then vui else Nothing
 		}
 
-
--------------------------------------------------------------------------------
--- SPS syntax element parsing
--------------------------------------------------------------------------------
-
--- spec 7.4.2.1.1
-synelProfileIdc = mkSynel "profile_idc" (SynelTypeUn 8)
-synelConstraintSet0Flag = mkSynel "constraint_set0_flag" (SynelTypeUn 1)
-synelConstraintSet1Flag = mkSynel "constraint_set1_flag" (SynelTypeUn 1)
-synelConstraintSet2Flag = mkSynel "constraint_set2_flag" (SynelTypeUn 1)
-synelConstraintSet3Flag = mkSynel "constraint_set3_flag" (SynelTypeUn 1)
-synelConstraintSet4Flag = mkSynel "constraint_set4_flag" (SynelTypeUn 1)
-synelConstraintSet5Flag = mkSynel "constraint_set5_flag" (SynelTypeUn 1)
-synelReservedZero2bits = mkSynelV "reserved_zero_2bits" (SynelTypeUn 2) (==0)
-synelLevelIdc = mkSynel "level_idc" (SynelTypeUn 8)
-synelSeqParameterSetId = mkSynelV "seq_parameter_set_id" SynelTypeUEv (<=31)
-synelChromaFormatIdc = mkSynelV "chroma_format_idc" SynelTypeUEv (<=3)
-synelSeparateColourPlaneFlag = mkSynel "separate_colour_plane_flag" (SynelTypeUn 1)
-synelBitDepthLumaMinus8 = mkSynelV "bit_depth_luma_minus8" SynelTypeUEv (<=6)
-synelBitDepthChromaMinus8 = mkSynelV "bit_depth_chroma_minus8" SynelTypeUEv (<=6)
-synelQpPrimeYZeroTransformBypassFlag = mkSynel "qpprime_y_zero_transform_bypass_flag" (SynelTypeUn 1)
-synelSeqScalingMatrixPresentFlag = mkSynel "seq_scaling_matrix_present_flag" (SynelTypeUn 1)
-synelSeqScalingListPresentFlag = mkSynelA "seq_scaling_list_present_flag" (SynelTypeUn 1)
-synelLog2MaxFrameNumMinus4 = mkSynelV "log2_max_frame_num_minus4" SynelTypeUEv (<=12)
-synelPicOrderCntType = mkSynelV "pic_order_cnt_type" SynelTypeUEv (<=2)
-synelLog2MaxPicOrderCntLsbMinus4 = mkSynelV "log2_max_pic_order_cnt_lsb_minus4" SynelTypeUEv (<=12)
-synelDeltaPicOrderAlwaysZeroFlag = mkSynel "delta_pic_order_always_zero_flag" (SynelTypeUn 1)
-synelOffsetForNonRefPic = mkSynelV "offset_for_non_ref_pic" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
-synelOffsetForTopToBottomField = mkSynelV "offset_for_top_to_bottom_field" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
-synelNumRefFramesInPicOrderCntCycle = mkSynelV "num_ref_frames_in_pic_order_cnt_cycle" SynelTypeUEv (<=255)
-synelOffsetForRefFrame = mkSynelAV "offset_for_ref_frame" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
-synelMaxNumRefFrames = mkSynel "max_num_ref_frames" SynelTypeUEv -- (<=MaxDpbFrames)
-synelGapsInFrameNumValueAllowedFlag = mkSynel "gaps_in_frame_num_value_allowed_flag" (SynelTypeUn 1)
-synelPicWidthInMbsMinus1 = mkSynel "pic_width_in_mbs_minus1" SynelTypeUEv
-synelPicHeightInMapUnitsMinus1 = mkSynel "pic_height_in_map_units_minus1" SynelTypeUEv
-synelFrameMbsOnlyFlag = mkSynel "frame_mbs_only_flag" (SynelTypeUn 1)
-synelMbAdaptiveFrameFieldFlag = mkSynel "mb_adaptive_frame_field_flag" (SynelTypeUn 1)
-synelDirect8x8InferenceFlag = mkSynel "direct_8x8_inference_flag" (SynelTypeUn 1)
-synelFrameCroppingFlag = mkSynel "frame_cropping_flag" (SynelTypeUn 1)
-synelFrameCropLeftOffset = mkSynel "frame_crop_left_offset" SynelTypeUEv
-synelFrameCropRightOffset = mkSynel "frame_crop_right_offset" SynelTypeUEv
-synelFrameCropTopOffset = mkSynel "frame_crop_top_offset" SynelTypeUEv
-synelFrameCropBottomOffset = mkSynel "frame_crop_bottom_offset" SynelTypeUEv
-synelVuiParametersPresentFlag = mkSynel "vui_parameters_present_flag" (SynelTypeUn 1)
-
--- derived entries (dictionary hack)
-derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
-derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
-
-
--- spec 7.3.2.1.1
-parseSequenceParameterSetRbsp :: H264Context -> BitstreamBE -> Maybe (BitstreamBE, SequenceParameterSet)
-parseSequenceParameterSetRbsp _ _ | trace "parseSequenceParameterSetData" False = undefined
-parseSequenceParameterSetRbsp ctx bt =
-	Just (bt, emptySd) >>=
-	parse synelProfileIdc >>=
-	parse synelConstraintSet0Flag >>=
-	parse synelConstraintSet1Flag >>=
-	parse synelConstraintSet2Flag >>=
-	parse synelConstraintSet3Flag >>=
-	parse synelConstraintSet4Flag >>=
-	parse synelConstraintSet5Flag >>=
-	parse synelReservedZero2bits >>=
-	parse synelLevelIdc >>=
-	parse synelSeqParameterSetId >>= \(bt1, sd1) ->
-	(let
-		profileIdc = sdScalar sd1 synelProfileIdc
-		hasColorInfo = profileIdc `elem` [100,110,122,244,44,83,86,118,128,138]
-	in
-		if hasColorInfo then
-			Just (bt1, sd1) >>=
-			parse synelChromaFormatIdc >>= \(bt12, sd12) ->
-			(let
-				chromaFormatIdc = sdScalar sd12 synelChromaFormatIdc
-			in
-				if chromaFormatIdc == 3 then
-					Just (bt12, sd12) >>=
-					parse synelSeparateColourPlaneFlag
-				else
-					Just (bt12, sd12)
-			) >>=
-			parse synelBitDepthLumaMinus8 >>=
-			parse synelBitDepthChromaMinus8 >>=
-			parse synelQpPrimeYZeroTransformBypassFlag >>=
-			parse synelSeqScalingMatrixPresentFlag >>= \(bt13, sd13) ->
-			(let
-				hasScaling = sdScalar sd13 synelSeqScalingMatrixPresentFlag /= 0
-				chromaFormatIdc = sdScalar sd13 synelChromaFormatIdc
-				listCount = if chromaFormatIdc == 3 then 12 else 8
-			in
-				if hasScaling then
-					Just (bt13, sd13) >>=
-					parseForEach [0..listCount-1] (\i (btl1, sdl1) ->
-						Just (btl1, sdl1) >>=
-						parse synelSeqScalingListPresentFlag >>= \(btl11, sdl11) ->
-						(let
-							isListPresent = (/=0) $ last $ sdArray sdl11 synelSeqScalingListPresentFlag
-							listSize = if i < 6 then 16 else 64
-						in
-							if isListPresent then
-								parseScalingList listSize (btl11, [], False) >>= \(btl12, vs, useDef) ->
-								(let
-									useDefInt = if useDef then 1 else 0
-									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [useDefInt]
-									vs' = if useDef then replicate listSize 0 else vs
-									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists vs'
-								in
-									return (btl12, sdl13)
-								)
-							else
-								(let
-									sdl12 = sdAppendToArray sdl11 derivedUseDefaultScalingMatrixFlag [0]
-									sdl13 = sdAppendToArray sdl12 derivedFlatScalingLists $ replicate listSize 0
-								in
-									return (btl11, sdl13)
-								)
-						)
-					)
-				else
-					Just (bt13, sd13)
-			)
-		else
-			Just (bt1, sd1)
-	) >>=
-	parse synelLog2MaxFrameNumMinus4 >>=
-	parse synelPicOrderCntType >>= \(bt2, sd2) ->
-	(let
-		picOrderCntType = sdScalar sd2 synelPicOrderCntType
-	in
-		if picOrderCntType == 0 then
-			Just (bt2, sd2) >>=
-			parse synelLog2MaxPicOrderCntLsbMinus4
-		else
-			if picOrderCntType == 1 then
-				Just (bt2, sd2) >>=
-				parse synelDeltaPicOrderAlwaysZeroFlag >>=
-				parse synelOffsetForNonRefPic >>=
-				parse synelOffsetForTopToBottomField >>=
-				parse synelNumRefFramesInPicOrderCntCycle >>= \(bt21, sd21) ->
-				(let
-					numRefFramesInPoc = sdScalar sd21 synelNumRefFramesInPicOrderCntCycle
-				in
-					if numRefFramesInPoc > 0 then
-						Just (bt21, sd21) >>=
-						parseForEach [0..numRefFramesInPoc-1] (\_ (bt211, sd211) ->
-							Just (bt211, sd211) >>=
-							parse synelOffsetForRefFrame
-						)
-					else
-						Just (bt21, sd21)
-				)	
-			else
-				Just (bt2, sd2)
-	) >>=
-	parse synelMaxNumRefFrames >>=
-	parse synelGapsInFrameNumValueAllowedFlag >>=
-	parse synelPicWidthInMbsMinus1 >>=
-	parse synelPicHeightInMapUnitsMinus1 >>=
-	parse synelFrameMbsOnlyFlag >>= \(bt3, sd3) ->
-	(let
-		frameMbsOnly = sdScalar sd3 synelFrameMbsOnlyFlag /= 0
-	in
-		if frameMbsOnly then
-			Just (bt3, sd3)
-		else
-			Just (bt3, sd3) >>=
-			parse synelMbAdaptiveFrameFieldFlag
-	) >>=
-	parse synelDirect8x8InferenceFlag >>=
-	parse synelFrameCroppingFlag >>= \(bt4, sd4) ->
-	(let
-		needsCropping = sdScalar sd4 synelFrameCroppingFlag /= 0
-	in
-		if needsCropping then
-			Just (bt4, sd4) >>=
-			parse synelFrameCropLeftOffset >>=
-			parse synelFrameCropRightOffset >>=
-			parse synelFrameCropTopOffset >>=
-			parse synelFrameCropBottomOffset
-		else
-			Just (bt4, sd4)
-	) >>=
-	parse synelVuiParametersPresentFlag >>= \(bt5, sd5) ->
-	(let
-		hasVuiParams = sdScalar sd5 synelVuiParametersPresentFlag /= 0
-	in
-		if hasVuiParams then
-			Just (bt5, sd5) >>=
-			parseVuiParameters
-		else
-			Just (bt5, sd5)
-	) >>= \(bt6, sd6) ->
-	parseRbspTrailingBits bt bt6 >>= \bt7 ->
-	spsFromDictionary ctx sd6 >>= \sps ->
-	return (bt7, sps)
-		
