@@ -7,8 +7,10 @@ import qualified Data.Bitstream.Lazy as BTL
 import Data.Maybe
 import Debug.Trace
 
+import Hs264.Parsing.RBSP.Internal
 import Hs264.Parsing.RBSP.SPS.VUI
 import Hs264.Parsing.SyntaxElement
+import Hs264.Types.Context as CTX
 import Hs264.Types.SPS
 
 
@@ -401,9 +403,9 @@ derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFl
 
 
 -- spec 7.3.2.1.1
-parseSequenceParameterSetData :: BitstreamBE -> Maybe (BitstreamBE, SequenceParameterSet)
-parseSequenceParameterSetData _ | trace "parseSequenceParameterSetData" False = undefined
-parseSequenceParameterSetData bt =
+parseSequenceParameterSetRbsp :: H264Context -> BitstreamBE -> Maybe (BitstreamBE, SequenceParameterSet)
+parseSequenceParameterSetRbsp _ _ | trace "parseSequenceParameterSetData" False = undefined
+parseSequenceParameterSetRbsp ctx bt =
 	Just (bt, emptySd) >>=
 	parse synelProfileIdc >>=
 	parse synelConstraintSet0Flag >>=
@@ -542,8 +544,9 @@ parseSequenceParameterSetData bt =
 		else
 			Just (bt5, sd5)
 	) >>= \(bt6, sd6) ->
+	parseRbspTrailingBits bt bt6 >>= \bt7 ->
 	spsFromDictionary sd6 >>= \sps ->
-	return (bt6, sps)
+	return (bt7, sps)
 		
 
 -- spec 7.3.2.1.1.1

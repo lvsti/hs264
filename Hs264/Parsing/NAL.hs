@@ -105,10 +105,12 @@ decodeNalUnit nal ctx | trace ("decoding " ++ show nal) False = undefined
 decodeNalUnit nal ctx =
 	case nalUnitType nal of
 		KNalUnitTypeSpsRbsp ->
-			parseSequenceParameterSetData bt >>= \(bt1, sps1) ->
+			parseSequenceParameterSetRbsp ctx bt >>= \(bt1, sps1) ->
 			return $ CTX.storeSps sps1 ctx
-		otherwise ->
+		
+		_ ->
 			return ctx
+		
 	where
 		bt = btFromBs $ nalRbspBytes nal
 
