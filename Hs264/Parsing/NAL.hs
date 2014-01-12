@@ -13,6 +13,7 @@ import System.IO
 import Hs264.Parsing.ByteStream
 import Hs264.Parsing.NAL.SVCExtensions
 import Hs264.Parsing.NAL.MVCExtensions
+import Hs264.Parsing.RBSP.FillerData
 import Hs264.Parsing.RBSP.PPS
 import Hs264.Parsing.RBSP.SPS
 import Hs264.Parsing.SyntaxElement
@@ -107,12 +108,16 @@ decodeNalUnit nal ctx | trace ("decoding " ++ show nal) False = undefined
 decodeNalUnit nal ctx =
 	case nalUnitType nal of
 		KNalUnitTypeSpsRbsp ->
-			parseSequenceParameterSetRbsp ctx bt >>= \(bt1, sps1) ->
-			return $ CTX.storeSps sps1 ctx
+			parseSequenceParameterSetRbsp ctx bt >>= \(bt', sps) ->
+			return $ CTX.storeSps sps ctx
 		
 		KNalUnitTypePpsRbsp ->
-			parsePictureParameterSetRbsp ctx bt >>= \(bt2, pps2) ->
-			return $ CTX.storePps pps2 ctx
+			parsePictureParameterSetRbsp ctx bt >>= \(bt', pps) ->
+			return $ CTX.storePps pps ctx
+		
+		KNalUnitTypeFillerDataRbsp ->
+			parseFillerDataRbsp ctx bt >>= \(bt', ctx') ->
+			return ctx'
 		
 		_ ->
 			return ctx
