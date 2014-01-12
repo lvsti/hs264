@@ -4,11 +4,14 @@ module Hs264.Types.Context where
 
 import qualified Data.Map.Strict as M
 
+import Hs264.Types.Profile
 import Hs264.Types.SPS
 
 
 data H264Context =
 	H264Context {
+		ctxProfile :: H264Profile,
+		ctxLevel :: H264Level,
 		ctxSpsStore :: M.Map Int SequenceParameterSet,
 		ctxPpsStore :: M.Map Int PictureParameterSet
 	} deriving (Show)
@@ -17,6 +20,8 @@ data H264Context =
 empty :: H264Context
 empty =
 	H264Context {
+		ctxProfile = kProfileBaseline,
+		ctxLevel = kLevel1,
 		ctxSpsStore = M.empty,
 		ctxPpsStore = M.empty
 	}
