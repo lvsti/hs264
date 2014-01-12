@@ -31,7 +31,7 @@ parsePictureParameterSetRbsp ctx bt =
 	(let
 		numSliceGroups = sdScalar sd1 synelNumSliceGroupsMinus1 + 1
 	in
-		if numSliceGroups > 0 then
+		if numSliceGroups > 1 then
 			Just (bt1, sd1) >>=
 			parse synelSliceGroupMapType >>= \(bt11, sd11) ->
 			(let
@@ -191,17 +191,8 @@ ppsFromDictionary _ _ | trace "ppsFromDictionary" False = undefined
 ppsFromDictionary ctx sd =
 	Just emptyPps >>=
 	setPpsCore sd >>=
-	setPpsSliceGroups sd >>= \pps1 ->
-	(let
-		spsId = ppsSeqParameterSetId pps1
-		sps = CTX.lookupSps spsId ctx
-	in
-		if isJust sps then
-			Just pps1 >>=
-			setPpsOptionalFields (fromJust sps) sd
-		else
-			Nothing
-	)
+	setPpsSliceGroups sd >>=
+	setPpsOptionalFields ctx sd
 		
 
 
@@ -297,17 +288,22 @@ setPpsSliceGroups sd pps
 			ppsSliceGroupMapParameters = if sgCount > 1 then Just sgMap else Nothing
 		}
 
-setPpsOptionalFields :: SequenceParameterSet -> SynelDictionary -> PictureParameterSet -> Maybe PictureParameterSet
-setPpsOptionalFields sps sd pps
-	| invalidInput = trace "ERROR: setPpsOptionalFields: invalid input" Nothing
-	| otherwise = Just optPps
+setPpsOptionalFields :: H264Context -> SynelDictionary -> PictureParameterSet -> Maybe PictureParameterSet
+setPpsOptionalFields ctx sd pps
+	| invalidInput = trace ("ERROR: setPpsOptionalFields: invalid input" ) Nothing
+	| otherwise = Just $ if hasAllOptSynels then optPps else pps
 	where
-		invalidInput = not hasRequiredSynels ||
-					   hasPicScalingMatrix && isNothing maybeMatrix
-		hasRequiredSynels = sdHasKeys sd [synelTransform8x8ModeFlag,
-										  synelSecondChromaQpIndexOffset,
-										  synelPicScalingMatrixPresentFlag]
+		invalidInput = not hasAllOrNoOptionalSynels ||
+					   hasAllOptSynels && hasPicScalingMatrix && (isNothing maybeSps || isNothing maybeMatrix)
+		synelPresentFlags = map (sdHasKey sd) [synelTransform8x8ModeFlag,
+											   synelSecondChromaQpIndexOffset,
+											   synelPicScalingMatrixPresentFlag]
+		hasAllOptSynels = all id synelPresentFlags
+		hasAllOrNoOptionalSynels = hasAllOptSynels || not (any id synelPresentFlags)
 		hasPicScalingMatrix = sdScalar sd synelPicScalingMatrixPresentFlag /= 0
+
+		maybeSps = CTX.lookupSps (ppsSeqParameterSetId pps) ctx
+		sps = fromJust maybeSps
 		hasSeqScalingMatrix = spsSeqScalingMatrixPresentFlag sps
 		seqScalingLists = spsScalingLists sps
 		fallbackMatrix = if hasSeqScalingMatrix then seqScalingLists else kDefaultScalingListMatrix
