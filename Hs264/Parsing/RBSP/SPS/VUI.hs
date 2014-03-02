@@ -219,9 +219,9 @@ hrdFromDictionary sd = Just emptyHrd
 synelCpbCntMinus1 = mkSynelV "cpb_cnt_minus1" SynelTypeUEv (<=31)
 synelBitRateScale = mkSynel "bit_rate_scale" (SynelTypeUn 4)
 synelCpbSizeScale = mkSynel "cpb_size_scale" (SynelTypeUn 4)
-synelBitRateValueMinus1 = mkSynelAV "bit_rate_value_minus1" SynelTypeUEv (<=0xfffffffe)
-synelCpbSizeValueMinus1 = mkSynelAV "cpb_size_value_minus1" SynelTypeUEv (<=0xfffffffe)
-synelCbrFlag = mkSynelA "cbr_flag" (SynelTypeUn 1)
+synelBitRateValueMinus1 = mkSynelV "bit_rate_value_minus1" SynelTypeUEv (<=0xfffffffe)
+synelCpbSizeValueMinus1 = mkSynelV "cpb_size_value_minus1" SynelTypeUEv (<=0xfffffffe)
+synelCbrFlag = mkSynel "cbr_flag" (SynelTypeUn 1)
 synelInitialCpbRemovalDelayLengthMinus1 = mkSynel "initial_cpb_removal_delay_length_minus1" (SynelTypeUn 5)
 synelCpbRemovalDelayLengthMinus1 = mkSynel "cpb_removal_delay_length_minus1" (SynelTypeUn 5)
 synelDpbOutputDelayLengthMinus1 = mkSynel "dpb_output_delay_length_minus1" (SynelTypeUn 5)
@@ -242,9 +242,9 @@ parseHrdParameters (bt, sd) =
 		Just (bt1, sd1) >>=
 		parseForEach [0..cpbCntMinus1] (\_ (bt11, sd11) ->
 			Just (bt11, sd11) >>=
-			parse synelBitRateValueMinus1 >>=
-			parse synelCpbSizeValueMinus1 >>=
-			parse synelCbrFlag
+			parseA synelBitRateValueMinus1 >>=
+			parseA synelCpbSizeValueMinus1 >>=
+			parseA synelCbrFlag
 		)
 	) >>=
 	parse synelInitialCpbRemovalDelayLengthMinus1 >>=

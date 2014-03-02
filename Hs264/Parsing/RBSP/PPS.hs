@@ -42,15 +42,15 @@ parsePictureParameterSetRbsp ctx bt =
 					 	Just (bt11, sd11) >>=
 						parseForEach [0..numSliceGroups-1] (\i (btl1, sdl1) ->
 							Just (btl1, sdl1) >>=
-							parse synelRunLengthMinus1
+							parseA synelRunLengthMinus1
 						)
 					
 					_ | mapType == 2 ->
 					 	Just (bt11, sd11) >>=
 						parseForEach [0..numSliceGroups-1] (\i (btl2, sdl2) ->
 							Just (btl2, sdl2) >>=
-							parse synelTopLeft >>=
-							parse synelBottomRight
+							parseA synelTopLeft >>=
+							parseA synelBottomRight
 						)
 					
 					_ | mapType `elem` [3,4,5] ->
@@ -68,7 +68,7 @@ parsePictureParameterSetRbsp ctx bt =
 							Just (bt111, sd111) >>=
 							parseForEach [0..picSizeInMU-1] (\i (btl3, sdl3) ->
 								Just (btl3, sdl3) >>=
-								parse (synelSliceGroupId_v sgidSize)
+								parseA (synelSliceGroupId_v sgidSize)
 							)
 						)
 					
@@ -124,13 +124,13 @@ synelEntropyCodingModeFlag = mkSynel "entropy_coding_mode_flag" (SynelTypeUn 1)
 synelBottomFieldPicOrderInFramePresentFlag = mkSynel "bottom_field_pic_order_in_frame_present_flag" (SynelTypeUn 1)
 synelNumSliceGroupsMinus1 = mkSynelV "num_slice_groups_minus1" SynelTypeUEv (<=7) -- profile dependent
 synelSliceGroupMapType = mkSynelV "slice_group_map_type" SynelTypeUEv (<=6)
-synelRunLengthMinus1 = mkSynelA "run_length_minus1" SynelTypeUEv -- (<PicSizeInMapUnits)
-synelTopLeft = mkSynelA "top_left" SynelTypeUEv -- (<bottom_right)
+synelRunLengthMinus1 = mkSynel "run_length_minus1" SynelTypeUEv -- (<PicSizeInMapUnits)
+synelTopLeft = mkSynel "top_left" SynelTypeUEv -- (<bottom_right)
 synelBottomRight = mkSynel "bottom_right" SynelTypeUEv -- (<PicSizeInMapUnits)
-synelSliceGroupChangeDirectionFlag = mkSynelA "slice_group_change_direction_flag" (SynelTypeUn 1)
+synelSliceGroupChangeDirectionFlag = mkSynel "slice_group_change_direction_flag" (SynelTypeUn 1)
 synelSliceGroupChangeRateMinus1 = mkSynel "slice_group_change_rate_minus1" SynelTypeUEv -- (<PicSizeInMapUnits)
 synelPicSizeInMapUnitsMinus1 = mkSynel "pic_size_in_map_units_minus1" SynelTypeUEv
-synelSliceGroupId_v = \n -> mkSynelA "slice_group_id" (SynelTypeUn n)-- runtime variable bit count -- (<NumSliceGroups)
+synelSliceGroupId_v = \n -> mkSynel "slice_group_id" (SynelTypeUn n)-- runtime variable bit count -- (<NumSliceGroups)
 synelNumRefIdxL0DefaultActiveMinus1 = mkSynelV "num_ref_idx_l0_default_active_minus1" SynelTypeUEv (<=31)
 synelNumRefIdxL1DefaultActiveMinus1 = mkSynelV "num_ref_idx_l1_default_active_minus1" SynelTypeUEv (<=31)
 synelWeightedPredFlag = mkSynel "weighted_pred_flag" (SynelTypeUn 1)
@@ -143,7 +143,7 @@ synelConstrainedIntraPredFlag = mkSynel "constrained_intra_pred_flag" (SynelType
 synelRedundantPicCntPresentFlag = mkSynel "redundant_pic_cnt_present_flag" (SynelTypeUn 1)
 synelTransform8x8ModeFlag = mkSynel "transform_8x8_mode_flag" (SynelTypeUn 1)
 synelPicScalingMatrixPresentFlag = mkSynel "pic_scaling_matrix_present_flag" (SynelTypeUn 1)
-synelPicScalingListPresentFlag = mkSynelA "pic_scaling_list_present_flag" (SynelTypeUn 1)
+synelPicScalingListPresentFlag = mkSynel "pic_scaling_list_present_flag" (SynelTypeUn 1)
 synelSecondChromaQpIndexOffset = mkSynelV "second_chroma_qp_index_offset" SynelTypeSEv (\x -> x >= -12 && x <= 12)
 
 

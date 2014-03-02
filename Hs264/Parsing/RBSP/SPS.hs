@@ -91,7 +91,7 @@ parseSequenceParameterSetRbsp ctx bt =
 						Just (bt21, sd21) >>=
 						parseForEach [0..numRefFramesInPoc-1] (\_ (bt211, sd211) ->
 							Just (bt211, sd211) >>=
-							parse synelOffsetForRefFrame
+							parseA synelOffsetForRefFrame
 						)
 					else
 						Just (bt21, sd21)
@@ -159,7 +159,7 @@ synelBitDepthLumaMinus8 = mkSynelV "bit_depth_luma_minus8" SynelTypeUEv (<=6)
 synelBitDepthChromaMinus8 = mkSynelV "bit_depth_chroma_minus8" SynelTypeUEv (<=6)
 synelQpPrimeYZeroTransformBypassFlag = mkSynel "qpprime_y_zero_transform_bypass_flag" (SynelTypeUn 1)
 synelSeqScalingMatrixPresentFlag = mkSynel "seq_scaling_matrix_present_flag" (SynelTypeUn 1)
-synelSeqScalingListPresentFlag = mkSynelA "seq_scaling_list_present_flag" (SynelTypeUn 1)
+synelSeqScalingListPresentFlag = mkSynel "seq_scaling_list_present_flag" (SynelTypeUn 1)
 synelLog2MaxFrameNumMinus4 = mkSynelV "log2_max_frame_num_minus4" SynelTypeUEv (<=12)
 synelPicOrderCntType = mkSynelV "pic_order_cnt_type" SynelTypeUEv (<=2)
 synelLog2MaxPicOrderCntLsbMinus4 = mkSynelV "log2_max_pic_order_cnt_lsb_minus4" SynelTypeUEv (<=12)
@@ -167,7 +167,7 @@ synelDeltaPicOrderAlwaysZeroFlag = mkSynel "delta_pic_order_always_zero_flag" (S
 synelOffsetForNonRefPic = mkSynelV "offset_for_non_ref_pic" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
 synelOffsetForTopToBottomField = mkSynelV "offset_for_top_to_bottom_field" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
 synelNumRefFramesInPicOrderCntCycle = mkSynelV "num_ref_frames_in_pic_order_cnt_cycle" SynelTypeUEv (<=255)
-synelOffsetForRefFrame = mkSynelAV "offset_for_ref_frame" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
+synelOffsetForRefFrame = mkSynelV "offset_for_ref_frame" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
 synelMaxNumRefFrames = mkSynel "max_num_ref_frames" SynelTypeUEv -- (<=MaxDpbFrames)
 synelGapsInFrameNumValueAllowedFlag = mkSynel "gaps_in_frame_num_value_allowed_flag" (SynelTypeUn 1)
 synelPicWidthInMbsMinus1 = mkSynel "pic_width_in_mbs_minus1" SynelTypeUEv

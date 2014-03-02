@@ -107,8 +107,8 @@ kDefaultScalingListMatrix = [kScalingListDefault4x4Intra,
 
 
 -- derived entries (dictionary hack)
-derivedFlatScalingLists = mkSynelA "DERIVED_FlatScalingList" (SynelTypeUn 8)
-derivedUseDefaultScalingMatrixFlag = mkSynelA "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
+derivedFlatScalingLists = mkSynel "DERIVED_FlatScalingList" (SynelTypeUn 8)
+derivedUseDefaultScalingMatrixFlag = mkSynel "DERIVED_UseDefaultScalingMatrixFlag" (SynelTypeUn 1)
 
 
 parseScalingMatrix :: Synel -> Int -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
