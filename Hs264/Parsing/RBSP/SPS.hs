@@ -254,15 +254,15 @@ spsFromDictionary ctx sd =
 
 setSpsProfilesAndLevels :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
 setSpsProfilesAndLevels sd sps
-	| not hasRequiredSynels = trace "ERROR: setSpsProfilesAndLevels: invalid input" Nothing
-	| otherwise = if hasValidProfilesAndLevels False rawSps then
-					  if hasValidProfilesAndLevels True rawSps then
-						  Just rawSps
-					  else
-						  trace "WARNING: setSpsProfilesAndLevels: strict validation failed" $ Just rawSps
+	| invalidInput = trace "ERROR: setSpsProfilesAndLevels: invalid input" Nothing
+	| otherwise = if hasValidProfilesAndLevels True rawSps then
+					  Just rawSps
 				  else
-					  Nothing
+					  trace "WARNING: setSpsProfilesAndLevels: strict validation failed" $ Just rawSps
 	where
+		invalidInput = not hasRequiredSynels ||
+					   not passesSoftValidation
+		passesSoftValidation = hasValidProfilesAndLevels False rawSps
 		hasRequiredSynels = sdHasKeys sd [synelProfileIdc,
 							  			  synelConstraintSet0Flag,
 										  synelConstraintSet1Flag,
@@ -283,27 +283,30 @@ setSpsProfilesAndLevels sd sps
 		}
 
 		hasValidProfilesAndLevels :: Bool -> SequenceParameterSet -> Bool
-		hasValidProfilesAndLevels strict sps =
-			(profile /= 44 || (flags !! 3)) &&
-			(not strict || not (profile `elem` [66,77,88] && level /= 11) || not (flags !! 3)) &&
-			(not strict || profile `elem` [77,88,100,118,128] || not (flags !! 4)) &&
-			(not strict || profile `elem` [77,88,100,118] || not (flags !! 5))
+		hasValidProfilesAndLevels strict sps = softConformance && (not strict || strictConformance)
 			where
-				profile = spsProfileIdc sps
-				level = spsLevelIdc sps
+				softConformance = profileIdc /= 44 || (flags !! 3)
+				strictConformance = (not (profileIdc `elem` [66,77,88] && levelIdc /= 11) || not (flags !! 3)) &&
+									(profileIdc `elem` [77,88,100,118,128] || not (flags !! 4)) &&
+									(profileIdc `elem` [77,88,100,118] || not (flags !! 5))
+				profileIdc = spsProfileIdc sps
+				levelIdc = spsLevelIdc sps
 				flags = spsConstraintSetFlags sps
 
 
 setSpsColorAndTransform :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
 setSpsColorAndTransform sd sps
-	| hasMissingFields = trace "ERROR: setSpsColorAndTransform: invalid input" Nothing
+	| invalidInput = trace "ERROR: setSpsColorAndTransform: invalid input" Nothing
 	| otherwise = Just $ if hasColorInfo then colorSps else sps
 	where
+		invalidInput = hasMissingFields ||
+					   profileIdc == 183 && chromaFormatIdc /= 0
 		hasMissingFields = not (sdHasKey sd synelProfileIdc) ||
 						   hasColorInfo && (not hasRequiredSynels ||
 						   					chromaFormatIdc == 3 && not (sdHasKey sd synelSeparateColourPlaneFlag) ||
 											not (isJust maybeMatrix))
-		hasColorInfo = (sdScalar sd synelProfileIdc) `elem` [100,110,122,244,44,83,86,118,128,138]
+		profileIdc = sdScalar sd synelProfileIdc
+		hasColorInfo = profileIdc `elem` [100,110,122,244,44,83,86,118,128,138]
 		hasRequiredSynels = sdHasKeys sd [synelChromaFormatIdc,
 							  			  synelBitDepthLumaMinus8,
 										  synelBitDepthChromaMinus8,
@@ -335,12 +338,12 @@ setSpsColorAndTransform sd sps
 
 setSpsFrameOrdering :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
 setSpsFrameOrdering sd sps
-	| hasMissingFields = trace "ERROR: setSpsFrameOrdering: invalid input" Nothing
+	| invalidInput = trace "ERROR: setSpsFrameOrdering: invalid input" Nothing
 	| otherwise = Just $ [poc0Sps, poc1Sps, poc2Sps] !! pocType
 	where
-		hasMissingFields = not hasRequiredSynels ||
-						   (pocType == 0 && not hasPoc0RequiredSynels) ||
-						   (pocType == 1 && not (hasPoc1RequiredSynels && hasValidFrameOffsets))
+		invalidInput = not hasRequiredSynels ||
+					   pocType == 0 && not hasPoc0RequiredSynels ||
+					   pocType == 1 && not (hasPoc1RequiredSynels && hasValidFrameOffsets)
 		hasRequiredSynels = sdHasKeys sd [synelPicOrderCntType,
 										  synelLog2MaxFrameNumMinus4,
 										  synelMaxNumRefFrames,
@@ -377,11 +380,11 @@ setSpsFrameOrdering sd sps
 
 setSpsFrameDimensions :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
 setSpsFrameDimensions sd sps
-	| hasMissingFields = trace "ERROR: setSpsFrameDimensions: invalid input" Nothing
+	| invalidInput = trace "ERROR: setSpsFrameDimensions: invalid input" Nothing
 	| otherwise = Just $ if hasCropping then croppingSps else commonSps
 	where
-		hasMissingFields = not hasRequiredSynels ||
-						   hasCropping && not hasCroppingSynels
+		invalidInput = not hasRequiredSynels ||
+					   hasCropping && not hasCroppingSynels
 		hasRequiredSynels = sdHasKeys sd [synelFrameCroppingFlag,
 										  synelPicWidthInMbsMinus1,
 										  synelPicHeightInMapUnitsMinus1]
@@ -405,30 +408,32 @@ setSpsFrameDimensions sd sps
 
 setSpsMiscellaneous :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
 setSpsMiscellaneous sd sps
-	| hasMissingFields = trace "ERROR: setSpsMiscellaneous: invalid input" Nothing
+	| invalidInput = trace "ERROR: setSpsMiscellaneous: invalid input" Nothing
 	| otherwise = Just rawSps
 	where
-		hasMissingFields = not hasRequiredSynels ||
-						   not frameMbsOnly && not (sdHasKey sd synelMbAdaptiveFrameFieldFlag)
+		invalidInput = not hasRequiredSynels ||
+                       not frameMbsOnly && (not (sdHasKey sd synelMbAdaptiveFrameFieldFlag) ||
+                                            not direct8x8)
 		hasRequiredSynels = sdHasKeys sd [synelFrameMbsOnlyFlag,
 										  synelSeqParameterSetId,
 										  synelDirect8x8InferenceFlag]
 		frameMbsOnly = sdScalar sd synelFrameMbsOnlyFlag /= 0
+		direct8x8 = sdScalar sd synelDirect8x8InferenceFlag /= 0
 		rawSps = sps {
 			spsSeqParameterSetId = sdScalar sd synelSeqParameterSetId,
 			spsFrameMbsOnlyFlag = frameMbsOnly,
 			spsMbAdaptiveFrameFieldFlag = if frameMbsOnly then False else (sdScalar sd synelMbAdaptiveFrameFieldFlag /= 0),
-			spsDirect8x8InferenceFlag = sdScalar sd synelDirect8x8InferenceFlag /= 0
+			spsDirect8x8InferenceFlag = direct8x8
 		}
 
 
 setSpsVui :: SynelDictionary -> SequenceParameterSet -> Maybe SequenceParameterSet
 setSpsVui sd sps
-	| hasMissingFields = trace "ERROR: setSpsVui: invalid input" Nothing
+	| invalidInput = trace "ERROR: setSpsVui: invalid input" Nothing
 	| otherwise = Just commonSps
 	where
-		hasMissingFields = not hasRequiredSynels ||
-						   hasVui && not (isJust vui)
+		invalidInput = not hasRequiredSynels ||
+					   hasVui && isNothing vui
 		hasRequiredSynels = sdHasKeys sd [synelVuiParametersPresentFlag]
 		hasVui = sdScalar sd synelVuiParametersPresentFlag /= 0
 		vui = vuiFromDictionary sd
