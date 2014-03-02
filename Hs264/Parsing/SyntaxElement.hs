@@ -6,6 +6,7 @@ import qualified Data.Bitstream.Lazy as BTL
 import qualified Data.Map.Strict as M
 import Data.Bits
 import Debug.Trace
+import qualified Hs264.Data.SparseArray as SA
 
 -- big endian bitstream
 type BitstreamBE = BTL.Bitstream BTL.Right
@@ -80,7 +81,7 @@ parseFn n bt
 parseIn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
 parseIn n bt =
 	parseFn n bt >>= \(bt', value) ->
-	return (bt', extendSign n value)
+	Just (bt', extendSign n value)
 
 -- spec 9.1.2
 parseMEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
@@ -94,7 +95,7 @@ parseSEv bt =
 		absValue = (value + 1) `shiftR` 1
 		mappedValue = if odd value then absValue else (-absValue)
 	in
-		return (bt', mappedValue)
+		Just (bt', mappedValue)
 
 -- spec 9.1.1
 parseTEv :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
@@ -126,7 +127,6 @@ parseUEv bt
 
 data Synel = Synel { synelName :: String,
 					 synelType :: SynelType,
-					 synelIsArray :: Bool,
 					 synelValidator :: Int -> Bool }
 
 instance Eq Synel where
@@ -138,31 +138,27 @@ instance Ord Synel where
     (>) s1 s2 = (>) (synelName s1) (synelName s2)
 
 instance Show Synel where
-	show syn = show (synelName syn) ++ (if synelIsArray syn then "[]" else "") ++ " -> " ++ show (synelType syn)
+	show syn = show (synelName syn) ++ " :: " ++ show (synelType syn)
 
 					 
 mkSynel :: String -> SynelType -> Synel
-mkSynel sn st = Synel { synelName = sn, synelType = st, synelIsArray = False, synelValidator = const True }
-
-mkSynelA :: String -> SynelType -> Synel
-mkSynelA sn st = Synel { synelName = sn, synelType = st, synelIsArray = True, synelValidator = const True }
+mkSynel sn st = Synel { synelName = sn, synelType = st, synelValidator = const True }
 
 mkSynelV :: String -> SynelType -> (Int -> Bool) -> Synel
 mkSynelV sn st sv = baseSynel { synelValidator = sv }
 	where
 		baseSynel = mkSynel sn st
 
-mkSynelAV :: String -> SynelType -> (Int -> Bool) -> Synel
-mkSynelAV sn st sv = baseSynel { synelValidator = sv }
-	where
-		baseSynel = mkSynelA sn st
-
 
 ------------------------------------------------------------------------------
 -- Syntax element dictionary
 ------------------------------------------------------------------------------
 
-data SynelValue = SVScalar Int | SVArray [Int] deriving (Eq,Show)
+data SynelValue = SVScalar Int
+				| SVArray [Int]
+				| SVSparseArray (SA.SparseArray Int)
+				deriving (Eq,Show)
+
 type SynelDictionary = M.Map Synel SynelValue
 
 emptySd :: SynelDictionary
@@ -174,6 +170,7 @@ sdHasKey sd key = M.member key sd
 sdHasKeys :: SynelDictionary -> [Synel] -> Bool
 sdHasKeys sd ks = all (sdHasKey sd) ks
 
+
 sdScalar :: SynelDictionary -> Synel -> Int
 sdScalar sd key = scalarValue
 	where
@@ -183,6 +180,12 @@ sdArray :: SynelDictionary -> Synel -> [Int]
 sdArray sd key = arrayValue
 	where
 		(SVArray arrayValue) = sd M.! key
+		
+sdSparseArray :: SynelDictionary -> Synel -> SA.SparseArray Int
+sdSparseArray sd key = saValue
+	where
+		(SVSparseArray saValue) = sd M.! key
+
 
 sdSetScalar :: SynelDictionary -> Synel -> Int -> SynelDictionary
 sdSetScalar sd key value = M.insert key (SVScalar value) sd
@@ -191,24 +194,56 @@ sdSetArray :: SynelDictionary -> Synel -> [Int] -> SynelDictionary
 sdSetArray sd key vs = M.insert key (SVArray vs) sd
 
 sdAppendToArray :: SynelDictionary -> Synel -> [Int] -> SynelDictionary
-sdAppendToArray sd key vs = M.insertWith (\(SVArray newvs) (SVArray oldvs) -> SVArray (oldvs ++ newvs)) key (SVArray vs) sd
+sdAppendToArray sd key vs = M.insertWith updateArray key (SVArray vs) sd
+	where
+		updateArray :: SynelValue -> SynelValue -> SynelValue
+		updateArray (SVArray newvs) (SVArray oldvs) = SVArray (oldvs ++ newvs)
+
+sdSetSparseArray :: SynelDictionary -> Synel -> SA.SparseArray Int -> SynelDictionary
+sdSetSparseArray sd key sa = M.insert key (SVSparseArray sa) sd
+
+sdAddToSparseArray :: SynelDictionary -> Synel -> SA.SparseIndex -> Int -> SynelDictionary
+sdAddToSparseArray sd key ix v = M.insertWith updateSparseArray key (SVSparseArray $ SA.singleton ix v) sd
+	where
+		updateSparseArray :: SynelValue -> SynelValue -> SynelValue
+		updateSparseArray (SVSparseArray newsa) (SVSparseArray oldsa) = SVSparseArray $ SA.union newsa oldsa
 
 
 ------------------------------------------------------------------------------
 -- Syntax element parsing
 ------------------------------------------------------------------------------
 
-parse :: Synel -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+type SynelParseState = (BitstreamBE, SynelDictionary)
+
+parse :: Synel -> SynelParseState -> Maybe SynelParseState
 parse syn (bt, sd) =
 	parseSynel bt syn >>= \(bt', value) ->
 	(let
-		sd' = if synelIsArray syn then
-				  sdAppendToArray sd syn [value]
-			  else
-				  sdSetScalar sd syn value
+		sd' = sdSetScalar sd syn value
 	in
-		Just (bt', sd')
+		trace (show syn ++ " = " ++ show value ++ " (rem:" ++ show (BTL.length bt') ++ ")") $ return (bt', sd')
 	)
+
+	
+parseA :: Synel -> SynelParseState -> Maybe SynelParseState
+parseA syn (bt, sd) =
+	parseSynel bt syn >>= \(bt', value) ->
+	(let
+		sd' = sdAppendToArray sd syn [value]
+	in
+		trace (show syn ++ " = " ++ show value ++ " (rem:" ++ show (BTL.length bt') ++ ")") $ return (bt', sd')
+	)
+
+
+parseSA :: Synel -> SA.SparseIndex -> SynelParseState -> Maybe SynelParseState
+parseSA syn ix (bt, sd) =
+	parseSynel bt syn >>= \(bt', value) ->
+	(let
+		sd' = sdAddToSparseArray sd syn ix value
+	in
+		trace (show syn ++ " = " ++ show value ++ " (rem:" ++ show (BTL.length bt') ++ ")") $ return (bt', sd')
+	)
+
 
 parseSynel :: BitstreamBE -> Synel -> Maybe (BitstreamBE, Int)
 parseSynel bt syn =
@@ -219,7 +254,10 @@ parseSynel bt syn =
 		trace ("validation of synel [" ++ show syn ++ "] failed, value = " ++ show value) Nothing
 		
 
-parseForEach :: [Int] -> (Int -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)) -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parseForEach :: [Int]
+			 -> (Int -> SynelParseState -> Maybe SynelParseState)
+			 -> SynelParseState
+			 -> Maybe SynelParseState
 parseForEach [] _ state = return state
 parseForEach vs f state =
 	return state >>=
@@ -227,7 +265,10 @@ parseForEach vs f state =
 	parseForEach (tail vs) f
 
 
-parseWhile :: ((BitstreamBE, SynelDictionary) -> Bool) -> ((BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)) -> (BitstreamBE, SynelDictionary) -> Maybe (BitstreamBE, SynelDictionary)
+parseWhile :: (SynelParseState -> Bool)
+		   -> (SynelParseState -> Maybe SynelParseState)
+		   -> SynelParseState
+		   -> Maybe SynelParseState
 parseWhile pr f state@(bt, sd)
 	| pr state = return state >>= f >>= parseWhile pr f
 	| otherwise = return state
