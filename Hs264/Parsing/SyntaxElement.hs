@@ -2,15 +2,15 @@
 
 module Hs264.Parsing.SyntaxElement where
 
-import qualified Data.Bitstream.Lazy as BTL
-import qualified Data.Map.Strict as M
 import Data.Bits
-import Debug.Trace
-import qualified Hs264.Data.SparseArray as SA
+import qualified Data.Bitstream.Lazy as BTL
 
 -- big endian bitstream
 type BitstreamBE = BTL.Bitstream BTL.Right
 
+
+kMaxSynelBits :: Int
+kMaxSynelBits = bitSize (undefined :: Int)
 
 bitsToInt :: Int -> BitstreamBE -> Int
 bitsToInt n bt = (BTL.toBits :: BitstreamBE -> Int) $ BTL.take n bt
@@ -22,19 +22,58 @@ extendSign n nBitValue = if isNegative then fromIntegral (-baseValue) else fromI
 		baseValue = clearBit nBitValue (n-1)
 
 
+type BitParseError = String
+
+data BitParseState =
+    BitParseState {
+        bpsBits :: BitstreamBE,
+        bpsOffset :: Int
+    }
+
+instance Show BitParseState where
+    show bps = "<ofs:" ++ show (bpsOffset bps) ++ ">"
+
+
+newtype BitParse a =
+    BitParse {
+        runBitParse :: BitParseState -> Either BitParseError (a, BitParseState)
+    }
+
+
+getBitState :: BitParse BitParseState
+getBitState = BitParse $ \bps -> Right (bps, bps)
+
+putBitState :: BitParseState -> BitParse ()
+putBitState bps = BitParse $ \_ -> Right ((), bps)
+
+instance Monad BitParse where
+    return x = BitParse $ \bps -> Right (x, bps)
+    fail err = BitParse $ \bps -> Left $ err ++ " " ++ show bps
+    parse >>= continuation = BitParse bareParse
+        where
+            bareParse bps =
+                case runBitParse parse bps of
+                    Left err -> Left err
+                    Right (x, bps') -> runBitParse (continuation x) bps'
+
+
+type SynelParse = BitParse Int
+
+
 ------------------------------------------------------------------------------
 -- Syntax element types (spec 7.2)
 ------------------------------------------------------------------------------
-data SynelType = SynelTypeAEv |
-				 SynelTypeB8 |
-				 SynelTypeCEv |
-				 SynelTypeFn Int |
-				 SynelTypeIn Int |
-				 SynelTypeMEv |
-				 SynelTypeSEv |
-				 SynelTypeTEv Int |
-				 SynelTypeUn Int |
-				 SynelTypeUEv deriving (Eq)
+data SynelType = SynelTypeAEv
+               | SynelTypeB8
+               | SynelTypeCEv
+               | SynelTypeFn Int
+               | SynelTypeIn Int
+               | SynelTypeMEv
+               | SynelTypeSEv
+               | SynelTypeTEv Int
+               | SynelTypeUn Int
+               | SynelTypeUEv
+               deriving (Eq)
 
 instance Show SynelType where
 	show SynelTypeAEv = "ae(v)"
@@ -49,7 +88,7 @@ instance Show SynelType where
 	show SynelTypeUEv = "ue(v)"
 
 
-synelFunction :: SynelType -> BitstreamBE -> Maybe (BitstreamBE, Int)
+synelFunction :: SynelType -> SynelParse
 synelFunction SynelTypeAEv = parseAEv
 synelFunction SynelTypeB8 = parseB8
 synelFunction SynelTypeCEv = parseCEv
@@ -62,63 +101,93 @@ synelFunction (SynelTypeUn n) = parseUn n
 synelFunction SynelTypeUEv = parseUEv
 
 
-parseAEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseAEv = error "not implemented"
+parseAEv :: SynelParse
+parseAEv = fail "AE(v) not implemented"
 
-parseB8 :: BitstreamBE -> Maybe (BitstreamBE, Int)
+parseB8 :: SynelParse
 parseB8 = parseFn 8
 
-parseCEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseCEv = error "not implemented"
+parseCEv :: SynelParse
+parseCEv = fail "CE(v): not implemented"
 
 -- spec 7.2
-parseFn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseFn n bt
-	| BTL.length bt < n || n > 32 = Nothing
-	| otherwise = Just (BTL.drop n bt, bitsToInt n bt)
+parseFn :: Int -> SynelParse
+parseFn n
+    | n > kMaxSynelBits = fail $ "F(n): integer overflow (" ++ show n ++ ">" ++ show kMaxSynelBits ++ ")"
+    | otherwise =
+        getBitState >>= \bps ->
+        (let
+            bt = bpsBits bps
+            remaining = BTL.length bt
+            value = bitsToInt n bt
+            bps' = bps {
+                bpsBits = BTL.drop n bt,
+                bpsOffset = bpsOffset bps + n
+            }
+        in
+            if remaining >= n then
+                putBitState bps' >>
+                return value
+            else
+                fail $ "F(n): unexpected end-of-stream (expected:" ++ show n ++ ", remaining:" ++ show remaining ++ ")"
+        )
 
 -- spec 7.2
-parseIn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseIn n bt =
-	parseFn n bt >>= \(bt', value) ->
-	Just (bt', extendSign n value)
+parseIn :: Int -> SynelParse
+parseIn n =
+	parseFn n >>= \value ->
+	return $ extendSign n value
 
 -- spec 9.1.2
-parseMEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseMEv = error "use UE(v) and refer to 9.1.2 for the mapping"
+parseMEv :: SynelParse
+parseMEv = fail "ME(v): use UE(v) and refer to 9.1.2 for the mapping"
 
 -- spec 9.1.1
-parseSEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseSEv bt =
-	parseUEv bt >>= \(bt', value) ->
-	let
+parseSEv :: SynelParse
+parseSEv =
+	parseUEv >>= \value ->
+	(let
 		absValue = (value + 1) `shiftR` 1
 		mappedValue = if odd value then absValue else (-absValue)
 	in
-		Just (bt', mappedValue)
+		return mappedValue
+    )
 
 -- spec 9.1.1
-parseTEv :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
-parseTEv range bt
-	| range > 1 = parseUEv bt
-	| range < 1 || BTL.null bt = Nothing
-	| otherwise = Just (BTL.tail bt, if BTL.head bt then 0 else 1)
+parseTEv :: Int -> SynelParse
+parseTEv range
+	| range > 1 = parseUEv
+    | range < 1 = fail $ "TE(v): invalid range (" ++ show range ++ ")"
+	| otherwise =
+        parseFn 1 >>= \value ->
+        return (1-value)
 
 -- spec 7.2
-parseUn :: Int -> BitstreamBE -> Maybe (BitstreamBE, Int)
+parseUn :: Int -> SynelParse
 parseUn = parseFn
 
 -- spec 9.1
-parseUEv :: BitstreamBE -> Maybe (BitstreamBE, Int)
-parseUEv bt
-	| BTL.length suffix < leadingZeroBits + 1 = Nothing
-	| otherwise = Just (BTL.drop (2 * leadingZeroBits + 1) bt, value)
-	where
-		(prefix, suffix) = BTL.span (==False) bt
-		leadingZeroBits = BTL.length prefix
-		mantissa = bitsToInt leadingZeroBits $ BTL.tail suffix
-		value = (1 `shiftL` leadingZeroBits) - 1 + mantissa
-
+parseUEv :: SynelParse
+parseUEv = 
+    getBitState >>= \bps ->
+    (let
+        bt = bpsBits bps
+        (prefix, suffix) = BTL.span (==False) bt
+        leadingZeroBits = BTL.length prefix
+        mantissa = bitsToInt leadingZeroBits $ BTL.tail suffix
+        value = (1 `shiftL` leadingZeroBits) - 1 + mantissa
+        numBits = (leadingZeroBits `shiftL` 1) + 1
+        bps' = bps {
+            bpsBits = BTL.drop numBits bt,
+            bpsOffset = bpsOffset bps + numBits
+        }
+    in
+        if BTL.length suffix > leadingZeroBits then
+            putBitState bps' >>
+            return value
+        else
+            fail "UE(v): incomplete exp-Golomb codeword"
+    )
 
 
 ------------------------------------------------------------------------------
@@ -150,126 +219,11 @@ mkSynelV sn st sv = baseSynel { synelValidator = sv }
 		baseSynel = mkSynel sn st
 
 
-------------------------------------------------------------------------------
--- Syntax element dictionary
-------------------------------------------------------------------------------
-
-data SynelValue = SVScalar Int
-				| SVArray [Int]
-				| SVSparseArray (SA.SparseArray Int)
-				deriving (Eq,Show)
-
-type SynelDictionary = M.Map Synel SynelValue
-
-emptySd :: SynelDictionary
-emptySd = M.empty
-
-sdHasKey :: SynelDictionary -> Synel -> Bool
-sdHasKey sd key = M.member key sd
-
-sdHasKeys :: SynelDictionary -> [Synel] -> Bool
-sdHasKeys sd ks = all (sdHasKey sd) ks
-
-
-sdScalar :: SynelDictionary -> Synel -> Int
-sdScalar sd key = scalarValue
-	where
-		(SVScalar scalarValue) = sd M.! key
-
-sdArray :: SynelDictionary -> Synel -> [Int]
-sdArray sd key = arrayValue
-	where
-		(SVArray arrayValue) = sd M.! key
-		
-sdSparseArray :: SynelDictionary -> Synel -> SA.SparseArray Int
-sdSparseArray sd key = saValue
-	where
-		(SVSparseArray saValue) = sd M.! key
-
-
-sdSetScalar :: SynelDictionary -> Synel -> Int -> SynelDictionary
-sdSetScalar sd key value = M.insert key (SVScalar value) sd
-
-sdSetArray :: SynelDictionary -> Synel -> [Int] -> SynelDictionary
-sdSetArray sd key vs = M.insert key (SVArray vs) sd
-
-sdAppendToArray :: SynelDictionary -> Synel -> [Int] -> SynelDictionary
-sdAppendToArray sd key vs = M.insertWith updateArray key (SVArray vs) sd
-	where
-		updateArray :: SynelValue -> SynelValue -> SynelValue
-		updateArray (SVArray newvs) (SVArray oldvs) = SVArray (oldvs ++ newvs)
-
-sdSetSparseArray :: SynelDictionary -> Synel -> SA.SparseArray Int -> SynelDictionary
-sdSetSparseArray sd key sa = M.insert key (SVSparseArray sa) sd
-
-sdAddToSparseArray :: SynelDictionary -> Synel -> SA.SparseIndex -> Int -> SynelDictionary
-sdAddToSparseArray sd key ix v = M.insertWith updateSparseArray key (SVSparseArray $ SA.singleton ix v) sd
-	where
-		updateSparseArray :: SynelValue -> SynelValue -> SynelValue
-		updateSparseArray (SVSparseArray newsa) (SVSparseArray oldsa) = SVSparseArray $ SA.union newsa oldsa
-
-
-------------------------------------------------------------------------------
--- Syntax element parsing
-------------------------------------------------------------------------------
-
-type SynelParseState = (BitstreamBE, SynelDictionary)
-
-parse :: Synel -> SynelParseState -> Maybe SynelParseState
-parse syn (bt, sd) =
-	parseSynel bt syn >>= \(bt', value) ->
-	(let
-		sd' = sdSetScalar sd syn value
-	in
-		trace (show syn ++ " = " ++ show value ++ " (rem:" ++ show (BTL.length bt') ++ ")") $ return (bt', sd')
-	)
-
-	
-parseA :: Synel -> SynelParseState -> Maybe SynelParseState
-parseA syn (bt, sd) =
-	parseSynel bt syn >>= \(bt', value) ->
-	(let
-		sd' = sdAppendToArray sd syn [value]
-	in
-		trace (show syn ++ " = " ++ show value ++ " (rem:" ++ show (BTL.length bt') ++ ")") $ return (bt', sd')
-	)
-
-
-parseSA :: Synel -> SA.SparseIndex -> SynelParseState -> Maybe SynelParseState
-parseSA syn ix (bt, sd) =
-	parseSynel bt syn >>= \(bt', value) ->
-	(let
-		sd' = sdAddToSparseArray sd syn ix value
-	in
-		trace (show syn ++ " = " ++ show value ++ " (rem:" ++ show (BTL.length bt') ++ ")") $ return (bt', sd')
-	)
-
-
-parseSynel :: BitstreamBE -> Synel -> Maybe (BitstreamBE, Int)
-parseSynel bt syn =
-	synelFunction (synelType syn) bt >>= \(bt', value) ->
+parseSynel :: Synel -> SynelParse
+parseSynel syn =
+	synelFunction (synelType syn) >>= \value ->
 	if (synelValidator syn) value then
-		return (bt', value)
+		return value
 	else
-		trace ("validation of synel [" ++ show syn ++ "] failed, value = " ++ show value) Nothing
-		
-
-parseForEach :: [Int]
-			 -> (Int -> SynelParseState -> Maybe SynelParseState)
-			 -> SynelParseState
-			 -> Maybe SynelParseState
-parseForEach [] _ state = return state
-parseForEach vs f state =
-	return state >>=
-	f (head vs) >>=
-	parseForEach (tail vs) f
-
-
-parseWhile :: (SynelParseState -> Bool)
-		   -> (SynelParseState -> Maybe SynelParseState)
-		   -> SynelParseState
-		   -> Maybe SynelParseState
-parseWhile pr f state@(bt, sd)
-	| pr state = return state >>= f >>= parseWhile pr f
-	| otherwise = return state
+		fail $ "validation of synel '" ++ show syn ++ "' failed, value = " ++ show value
 
