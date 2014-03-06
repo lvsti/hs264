@@ -196,6 +196,7 @@ parseUEv =
 
 data Synel = Synel { synelName :: String,
 					 synelType :: SynelType,
+                     synelCategories :: [Int],
 					 synelValidator :: Int -> Bool }
 
 instance Eq Synel where
@@ -207,16 +208,22 @@ instance Ord Synel where
     (>) s1 s2 = (>) (synelName s1) (synelName s2)
 
 instance Show Synel where
-	show syn = show (synelName syn) ++ " :: " ++ show (synelType syn)
+	show syn = show (synelName syn) ++ " C" ++ show (synelCategories syn) ++ " :: " ++ show (synelType syn)
 
 					 
-mkSynel :: String -> SynelType -> Synel
-mkSynel sn st = Synel { synelName = sn, synelType = st, synelValidator = const True }
+mkSynel :: String -> SynelType -> [Int] -> Synel
+mkSynel sn st cat =
+    Synel {
+        synelName = sn,
+        synelType = st,
+        synelCategories = cat,
+        synelValidator = const True
+    }
 
-mkSynelV :: String -> SynelType -> (Int -> Bool) -> Synel
-mkSynelV sn st sv = baseSynel { synelValidator = sv }
+mkSynelV :: String -> SynelType -> [Int] -> (Int -> Bool) -> Synel
+mkSynelV sn st cat sv = baseSynel { synelValidator = sv }
 	where
-		baseSynel = mkSynel sn st
+		baseSynel = mkSynel sn st cat
 
 
 parseSynel :: Synel -> SynelParse
