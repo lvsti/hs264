@@ -169,7 +169,7 @@ parseNextScale lastSc nextSc idx r (bt, vs, useDef) =
 		)
 	
 	where
-		synelDeltaScale = mkSynelV "delta_scale" SynelTypeSEv (\x -> x >= -128 && x <= 127)
+		synelDeltaScale = mkSynelV "delta_scale" SynelTypeSEv [0,1] (\x -> x >= -128 && x <= 127)
 
 
 extractScalingLists :: Synel -> [[Int]] -> SynelDictionary -> Maybe [[Int]]

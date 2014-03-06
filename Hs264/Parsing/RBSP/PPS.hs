@@ -118,33 +118,33 @@ parsePictureParameterSetRbsp ctx bt =
 
 
 -- spec 7.4.2.2
-synelPicParameterSetId = mkSynelV "pic_parameter_set_id" SynelTypeUEv (<=255)
-synelSeqParameterSetId = mkSynelV "seq_parameter_set_id" SynelTypeUEv (<=31)
-synelEntropyCodingModeFlag = mkSynel "entropy_coding_mode_flag" (SynelTypeUn 1)
-synelBottomFieldPicOrderInFramePresentFlag = mkSynel "bottom_field_pic_order_in_frame_present_flag" (SynelTypeUn 1)
-synelNumSliceGroupsMinus1 = mkSynelV "num_slice_groups_minus1" SynelTypeUEv (<=7) -- profile dependent
-synelSliceGroupMapType = mkSynelV "slice_group_map_type" SynelTypeUEv (<=6)
-synelRunLengthMinus1 = mkSynel "run_length_minus1" SynelTypeUEv -- (<PicSizeInMapUnits)
-synelTopLeft = mkSynel "top_left" SynelTypeUEv -- (<bottom_right)
-synelBottomRight = mkSynel "bottom_right" SynelTypeUEv -- (<PicSizeInMapUnits)
-synelSliceGroupChangeDirectionFlag = mkSynel "slice_group_change_direction_flag" (SynelTypeUn 1)
-synelSliceGroupChangeRateMinus1 = mkSynel "slice_group_change_rate_minus1" SynelTypeUEv -- (<PicSizeInMapUnits)
-synelPicSizeInMapUnitsMinus1 = mkSynel "pic_size_in_map_units_minus1" SynelTypeUEv
-synelSliceGroupId_v = \n -> mkSynel "slice_group_id" (SynelTypeUn n)-- runtime variable bit count -- (<NumSliceGroups)
-synelNumRefIdxL0DefaultActiveMinus1 = mkSynelV "num_ref_idx_l0_default_active_minus1" SynelTypeUEv (<=31)
-synelNumRefIdxL1DefaultActiveMinus1 = mkSynelV "num_ref_idx_l1_default_active_minus1" SynelTypeUEv (<=31)
-synelWeightedPredFlag = mkSynel "weighted_pred_flag" (SynelTypeUn 1)
-synelWeightedBipredIdc = mkSynelV "weighted_bipred_idc" (SynelTypeUn 2) (<=2)
-synelPicInitQpMinus26 = mkSynelV "pic_init_qp_minus26" SynelTypeSEv (\x -> x >= -62 && x <= 25)
-synelPicInitQsMinus26 = mkSynelV "pic_init_qs_minus26" SynelTypeSEv (\x -> x >= -26 && x <= 25)
-synelChromaQpIndexOffset = mkSynelV "chroma_qp_index_offset" SynelTypeSEv (\x -> x >= -12 && x <= 12)
-synelDeblockingFilterControlPresentFlag = mkSynel "deblocking_filter_control_present_flag" (SynelTypeUn 1)
-synelConstrainedIntraPredFlag = mkSynel "constrained_intra_pred_flag" (SynelTypeUn 1)
-synelRedundantPicCntPresentFlag = mkSynel "redundant_pic_cnt_present_flag" (SynelTypeUn 1)
-synelTransform8x8ModeFlag = mkSynel "transform_8x8_mode_flag" (SynelTypeUn 1)
-synelPicScalingMatrixPresentFlag = mkSynel "pic_scaling_matrix_present_flag" (SynelTypeUn 1)
-synelPicScalingListPresentFlag = mkSynel "pic_scaling_list_present_flag" (SynelTypeUn 1)
-synelSecondChromaQpIndexOffset = mkSynelV "second_chroma_qp_index_offset" SynelTypeSEv (\x -> x >= -12 && x <= 12)
+synelPicParameterSetId = mkSynelV "pic_parameter_set_id" SynelTypeUEv [1] (<=255)
+synelSeqParameterSetId = mkSynelV "seq_parameter_set_id" SynelTypeUEv [1] (<=31)
+synelEntropyCodingModeFlag = mkSynel "entropy_coding_mode_flag" (SynelTypeUn 1) [1]
+synelBottomFieldPicOrderInFramePresentFlag = mkSynel "bottom_field_pic_order_in_frame_present_flag" (SynelTypeUn 1) [1]
+synelNumSliceGroupsMinus1 = mkSynelV "num_slice_groups_minus1" SynelTypeUEv [1] (<=7) -- profile dependent
+synelSliceGroupMapType = mkSynelV "slice_group_map_type" SynelTypeUEv [1] (<=6)
+synelRunLengthMinus1 = mkSynel "run_length_minus1" SynelTypeUEv [1] -- (<PicSizeInMapUnits)
+synelTopLeft = mkSynel "top_left" SynelTypeUEv [1] -- (<bottom_right)
+synelBottomRight = mkSynel "bottom_right" SynelTypeUEv [1] -- (<PicSizeInMapUnits)
+synelSliceGroupChangeDirectionFlag = mkSynel "slice_group_change_direction_flag" (SynelTypeUn 1) [1]
+synelSliceGroupChangeRateMinus1 = mkSynel "slice_group_change_rate_minus1" SynelTypeUEv [1] -- (<PicSizeInMapUnits)
+synelPicSizeInMapUnitsMinus1 = mkSynel "pic_size_in_map_units_minus1" SynelTypeUEv [1]
+synelSliceGroupId_v = \n -> mkSynel "slice_group_id" (SynelTypeUn n) [1] -- runtime variable bit count -- (<NumSliceGroups)
+synelNumRefIdxL0DefaultActiveMinus1 = mkSynelV "num_ref_idx_l0_default_active_minus1" SynelTypeUEv [1] (<=31)
+synelNumRefIdxL1DefaultActiveMinus1 = mkSynelV "num_ref_idx_l1_default_active_minus1" SynelTypeUEv [1] (<=31)
+synelWeightedPredFlag = mkSynel "weighted_pred_flag" (SynelTypeUn 1) [1]
+synelWeightedBipredIdc = mkSynelV "weighted_bipred_idc" (SynelTypeUn 2) [1] (<=2)
+synelPicInitQpMinus26 = mkSynelV "pic_init_qp_minus26" SynelTypeSEv [1] (\x -> x >= -62 && x <= 25)
+synelPicInitQsMinus26 = mkSynelV "pic_init_qs_minus26" SynelTypeSEv [1] (\x -> x >= -26 && x <= 25)
+synelChromaQpIndexOffset = mkSynelV "chroma_qp_index_offset" SynelTypeSEv [1] (\x -> x >= -12 && x <= 12)
+synelDeblockingFilterControlPresentFlag = mkSynel "deblocking_filter_control_present_flag" (SynelTypeUn 1) [1]
+synelConstrainedIntraPredFlag = mkSynel "constrained_intra_pred_flag" (SynelTypeUn 1) [1]
+synelRedundantPicCntPresentFlag = mkSynel "redundant_pic_cnt_present_flag" (SynelTypeUn 1) [1]
+synelTransform8x8ModeFlag = mkSynel "transform_8x8_mode_flag" (SynelTypeUn 1) [1]
+synelPicScalingMatrixPresentFlag = mkSynel "pic_scaling_matrix_present_flag" (SynelTypeUn 1) [1]
+synelPicScalingListPresentFlag = mkSynel "pic_scaling_list_present_flag" (SynelTypeUn 1) [1]
+synelSecondChromaQpIndexOffset = mkSynelV "second_chroma_qp_index_offset" SynelTypeSEv [1] (\x -> x >= -12 && x <= 12)
 
 
 

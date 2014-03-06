@@ -28,38 +28,38 @@ vuiFromDictionary sd = Just emptyVui
 
 
 -- spec E.2.1
-synelAspectRatioInfoPresentFlag = mkSynel "aspect_ratio_info_present_flag" (SynelTypeUn 1)
-synelAspectRatioIdc = mkSynel "aspect_ratio_idc" (SynelTypeUn 8)
-synelSarWidth = mkSynel "sar_width" (SynelTypeUn 16)
-synelSarHeight = mkSynel "sar_height" (SynelTypeUn 16)
-synelOverscanInfoPresentFlag = mkSynel "overscan_info_present_flag" (SynelTypeUn 1)
-synelOverscanAppropriateFlag = mkSynel "overscan_appropriate_flag" (SynelTypeUn 1)
-synelVideoSignalTypePresentFlag = mkSynel "video_signal_type_present_flag" (SynelTypeUn 1)
-synelVideoFormat = mkSynel "video_format" (SynelTypeUn 3)
-synelVideoFullRangeFlag = mkSynel "video_full_range_flag" (SynelTypeUn 1)
-synelColourDescriptionPresentFlag = mkSynel "colour_description_present_flag" (SynelTypeUn 1)
-synelColourPrimaries = mkSynel "colour_primaries" (SynelTypeUn 8)
-synelTransferCharacteristics = mkSynel "transfer_characteristics" (SynelTypeUn 8)
-synelMatrixCoefficients = mkSynel "matrix_coefficients" (SynelTypeUn 8)
-synelChromaLocInfoPresentFlag = mkSynel "chroma_loc_info_present_flag" (SynelTypeUn 1)
-synelChromaSampleLocTypeTopField = mkSynelV "chroma_sample_loc_type_top_field" SynelTypeUEv (<=5)
-synelChromaSampleLocTypeBottomField = mkSynelV "chroma_sample_loc_type_bottom_field" SynelTypeUEv (<=5)
-synelTimingInfoPresentFlag = mkSynel "timing_info_present_flag" (SynelTypeUn 1)
-synelNumUnitsInTick = mkSynel "num_units_in_tick" (SynelTypeUn 32)
-synelTimeScale = mkSynel "time_scale" (SynelTypeUn 32)
-synelFixedFrameRateFlag = mkSynel "fixed_frame_rate_flag" (SynelTypeUn 1)
-synelNalHrdParametersPresentFlag = mkSynel "nal_hrd_parameters_present_flag" (SynelTypeUn 1)
-synelVclHrdParametersPresentFlag = mkSynel "vcl_hrd_parameters_present_flag" (SynelTypeUn 1)
-synelLowDelayHrdFlag = mkSynel "low_delay_hrd_flag" (SynelTypeUn 1)
-synelPicStructPresentFlag = mkSynel "pic_struct_present_flag" (SynelTypeUn 1)
-synelBitstreamRestrictionFlag = mkSynel "bitstream_restriction_flag" (SynelTypeUn 1)
-synelMotionVectorsOverPicBoundariesFlag = mkSynel "motion_vectors_over_pic_boundaries_flag" (SynelTypeUn 1)
-synelMaxBytesPerPicDenom = mkSynelV "max_bytes_per_pic_denom" SynelTypeUEv (<=16)
-synelMaxBitsPerMbDenom = mkSynelV "max_bits_per_mb_denom" SynelTypeUEv (<=16)
-synelLog2MaxMvLengthHorizontal = mkSynelV "log2_max_mv_length_horizontal" SynelTypeUEv (<=16)
-synelLog2MaxMvLengthVertical = mkSynelV "log2_max_mv_length_vertical" SynelTypeUEv (<=16)
-synelMaxNumReorderFrames = mkSynel "max_num_reorder_frames" SynelTypeUEv -- (<=max_dec_frame_buffering)
-synelMaxDecFrameBuffering = mkSynel "max_dec_frame_buffering" SynelTypeUEv -- (>=max_num_ref_frames)
+synelAspectRatioInfoPresentFlag = mkSynel "aspect_ratio_info_present_flag" [0] (SynelTypeUn 1)
+synelAspectRatioIdc = mkSynel "aspect_ratio_idc" (SynelTypeUn 8) [0]
+synelSarWidth = mkSynel "sar_width" (SynelTypeUn 16) [0]
+synelSarHeight = mkSynel "sar_height" (SynelTypeUn 16) [0]
+synelOverscanInfoPresentFlag = mkSynel "overscan_info_present_flag" (SynelTypeUn 1) [0]
+synelOverscanAppropriateFlag = mkSynel "overscan_appropriate_flag" (SynelTypeUn 1) [0]
+synelVideoSignalTypePresentFlag = mkSynel "video_signal_type_present_flag" (SynelTypeUn 1) [0]
+synelVideoFormat = mkSynel "video_format" (SynelTypeUn 3) [0]
+synelVideoFullRangeFlag = mkSynel "video_full_range_flag" (SynelTypeUn 1) [0]
+synelColourDescriptionPresentFlag = mkSynel "colour_description_present_flag" (SynelTypeUn 1) [0]
+synelColourPrimaries = mkSynel "colour_primaries" (SynelTypeUn 8) [0]
+synelTransferCharacteristics = mkSynel "transfer_characteristics" (SynelTypeUn 8) [0]
+synelMatrixCoefficients = mkSynel "matrix_coefficients" (SynelTypeUn 8) [0]
+synelChromaLocInfoPresentFlag = mkSynel "chroma_loc_info_present_flag" (SynelTypeUn 1) [0]
+synelChromaSampleLocTypeTopField = mkSynelV "chroma_sample_loc_type_top_field" SynelTypeUEv [0] (<=5)
+synelChromaSampleLocTypeBottomField = mkSynelV "chroma_sample_loc_type_bottom_field" SynelTypeUEv [0] (<=5)
+synelTimingInfoPresentFlag = mkSynel "timing_info_present_flag" (SynelTypeUn 1) [0]
+synelNumUnitsInTick = mkSynel "num_units_in_tick" (SynelTypeUn 32) [0]
+synelTimeScale = mkSynel "time_scale" (SynelTypeUn 32) [0]
+synelFixedFrameRateFlag = mkSynel "fixed_frame_rate_flag" (SynelTypeUn 1) [0]
+synelNalHrdParametersPresentFlag = mkSynel "nal_hrd_parameters_present_flag" (SynelTypeUn 1) [0]
+synelVclHrdParametersPresentFlag = mkSynel "vcl_hrd_parameters_present_flag" (SynelTypeUn 1) [0]
+synelLowDelayHrdFlag = mkSynel "low_delay_hrd_flag" (SynelTypeUn 1) [0]
+synelPicStructPresentFlag = mkSynel "pic_struct_present_flag" (SynelTypeUn 1) [0]
+synelBitstreamRestrictionFlag = mkSynel "bitstream_restriction_flag" (SynelTypeUn 1) [0]
+synelMotionVectorsOverPicBoundariesFlag = mkSynel "motion_vectors_over_pic_boundaries_flag" (SynelTypeUn 1) [0]
+synelMaxBytesPerPicDenom = mkSynelV "max_bytes_per_pic_denom" SynelTypeUEv [0] (<=16)
+synelMaxBitsPerMbDenom = mkSynelV "max_bits_per_mb_denom" SynelTypeUEv [0] (<=16)
+synelLog2MaxMvLengthHorizontal = mkSynelV "log2_max_mv_length_horizontal" SynelTypeUEv [0] (<=16)
+synelLog2MaxMvLengthVertical = mkSynelV "log2_max_mv_length_vertical" SynelTypeUEv [0] (<=16)
+synelMaxNumReorderFrames = mkSynel "max_num_reorder_frames" SynelTypeUEv [0] -- (<=max_dec_frame_buffering)
+synelMaxDecFrameBuffering = mkSynel "max_dec_frame_buffering" SynelTypeUEv [0] -- (>=max_num_ref_frames)
 
 
 -- spec E.1.1
@@ -216,16 +216,16 @@ hrdFromDictionary sd = Just emptyHrd
 
 
 -- spec E.2.2
-synelCpbCntMinus1 = mkSynelV "cpb_cnt_minus1" SynelTypeUEv (<=31)
-synelBitRateScale = mkSynel "bit_rate_scale" (SynelTypeUn 4)
-synelCpbSizeScale = mkSynel "cpb_size_scale" (SynelTypeUn 4)
-synelBitRateValueMinus1 = mkSynelV "bit_rate_value_minus1" SynelTypeUEv (<=0xfffffffe)
-synelCpbSizeValueMinus1 = mkSynelV "cpb_size_value_minus1" SynelTypeUEv (<=0xfffffffe)
-synelCbrFlag = mkSynel "cbr_flag" (SynelTypeUn 1)
-synelInitialCpbRemovalDelayLengthMinus1 = mkSynel "initial_cpb_removal_delay_length_minus1" (SynelTypeUn 5)
-synelCpbRemovalDelayLengthMinus1 = mkSynel "cpb_removal_delay_length_minus1" (SynelTypeUn 5)
-synelDpbOutputDelayLengthMinus1 = mkSynel "dpb_output_delay_length_minus1" (SynelTypeUn 5)
-synelTimeOffsetLength = mkSynel "time_offset_length" (SynelTypeUn 5)
+synelCpbCntMinus1 = mkSynelV "cpb_cnt_minus1" SynelTypeUEv [0,5] (<=31)
+synelBitRateScale = mkSynel "bit_rate_scale" (SynelTypeUn 4) [0,5]
+synelCpbSizeScale = mkSynel "cpb_size_scale" (SynelTypeUn 4) [0,5]
+synelBitRateValueMinus1 = mkSynelV "bit_rate_value_minus1" SynelTypeUEv [0,5] (<=0xfffffffe)
+synelCpbSizeValueMinus1 = mkSynelV "cpb_size_value_minus1" SynelTypeUEv [0,5] (<=0xfffffffe)
+synelCbrFlag = mkSynel "cbr_flag" (SynelTypeUn 1) [0,5]
+synelInitialCpbRemovalDelayLengthMinus1 = mkSynel "initial_cpb_removal_delay_length_minus1" [0,5] (SynelTypeUn 5)
+synelCpbRemovalDelayLengthMinus1 = mkSynel "cpb_removal_delay_length_minus1" (SynelTypeUn 5) [0,5]
+synelDpbOutputDelayLengthMinus1 = mkSynel "dpb_output_delay_length_minus1" (SynelTypeUn 5) [0,5]
+synelTimeOffsetLength = mkSynel "time_offset_length" (SynelTypeUn 5) [0,5]
 
 
 -- spec E.1.2

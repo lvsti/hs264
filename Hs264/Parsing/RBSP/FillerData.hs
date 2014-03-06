@@ -34,5 +34,5 @@ parseFillerDataRbsp ctx bt =
 
 
 -- spec 7.4.2.7
-synelFfByte = mkSynelV "ff_byte" (SynelTypeFn 8) (==0xff)
+synelFfByte = mkSynelV "ff_byte" (SynelTypeFn 8) [9] (==0xff)
 
