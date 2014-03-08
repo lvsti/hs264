@@ -143,44 +143,44 @@ parseSequenceParameterSetRbsp ctx bt =
 		
 
 -- spec 7.4.2.1.1
-synelProfileIdc = mkSynel "profile_idc" (SynelTypeUn 8)
-synelConstraintSet0Flag = mkSynel "constraint_set0_flag" (SynelTypeUn 1)
-synelConstraintSet1Flag = mkSynel "constraint_set1_flag" (SynelTypeUn 1)
-synelConstraintSet2Flag = mkSynel "constraint_set2_flag" (SynelTypeUn 1)
-synelConstraintSet3Flag = mkSynel "constraint_set3_flag" (SynelTypeUn 1)
-synelConstraintSet4Flag = mkSynel "constraint_set4_flag" (SynelTypeUn 1)
-synelConstraintSet5Flag = mkSynel "constraint_set5_flag" (SynelTypeUn 1)
-synelReservedZero2bits = mkSynelV "reserved_zero_2bits" (SynelTypeUn 2) (==0)
-synelLevelIdc = mkSynel "level_idc" (SynelTypeUn 8)
-synelSeqParameterSetId = mkSynelV "seq_parameter_set_id" SynelTypeUEv (<=31)
-synelChromaFormatIdc = mkSynelV "chroma_format_idc" SynelTypeUEv (<=3)
-synelSeparateColourPlaneFlag = mkSynel "separate_colour_plane_flag" (SynelTypeUn 1)
-synelBitDepthLumaMinus8 = mkSynelV "bit_depth_luma_minus8" SynelTypeUEv (<=6)
-synelBitDepthChromaMinus8 = mkSynelV "bit_depth_chroma_minus8" SynelTypeUEv (<=6)
-synelQpPrimeYZeroTransformBypassFlag = mkSynel "qpprime_y_zero_transform_bypass_flag" (SynelTypeUn 1)
-synelSeqScalingMatrixPresentFlag = mkSynel "seq_scaling_matrix_present_flag" (SynelTypeUn 1)
-synelSeqScalingListPresentFlag = mkSynel "seq_scaling_list_present_flag" (SynelTypeUn 1)
-synelLog2MaxFrameNumMinus4 = mkSynelV "log2_max_frame_num_minus4" SynelTypeUEv (<=12)
-synelPicOrderCntType = mkSynelV "pic_order_cnt_type" SynelTypeUEv (<=2)
-synelLog2MaxPicOrderCntLsbMinus4 = mkSynelV "log2_max_pic_order_cnt_lsb_minus4" SynelTypeUEv (<=12)
-synelDeltaPicOrderAlwaysZeroFlag = mkSynel "delta_pic_order_always_zero_flag" (SynelTypeUn 1)
-synelOffsetForNonRefPic = mkSynelV "offset_for_non_ref_pic" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
-synelOffsetForTopToBottomField = mkSynelV "offset_for_top_to_bottom_field" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
-synelNumRefFramesInPicOrderCntCycle = mkSynelV "num_ref_frames_in_pic_order_cnt_cycle" SynelTypeUEv (<=255)
-synelOffsetForRefFrame = mkSynelV "offset_for_ref_frame" SynelTypeSEv (\x -> x .&. 0xffffffff == x)
-synelMaxNumRefFrames = mkSynel "max_num_ref_frames" SynelTypeUEv -- (<=MaxDpbFrames)
-synelGapsInFrameNumValueAllowedFlag = mkSynel "gaps_in_frame_num_value_allowed_flag" (SynelTypeUn 1)
-synelPicWidthInMbsMinus1 = mkSynel "pic_width_in_mbs_minus1" SynelTypeUEv
-synelPicHeightInMapUnitsMinus1 = mkSynel "pic_height_in_map_units_minus1" SynelTypeUEv
-synelFrameMbsOnlyFlag = mkSynel "frame_mbs_only_flag" (SynelTypeUn 1)
-synelMbAdaptiveFrameFieldFlag = mkSynel "mb_adaptive_frame_field_flag" (SynelTypeUn 1)
-synelDirect8x8InferenceFlag = mkSynel "direct_8x8_inference_flag" (SynelTypeUn 1)
-synelFrameCroppingFlag = mkSynel "frame_cropping_flag" (SynelTypeUn 1)
-synelFrameCropLeftOffset = mkSynel "frame_crop_left_offset" SynelTypeUEv
-synelFrameCropRightOffset = mkSynel "frame_crop_right_offset" SynelTypeUEv
-synelFrameCropTopOffset = mkSynel "frame_crop_top_offset" SynelTypeUEv
-synelFrameCropBottomOffset = mkSynel "frame_crop_bottom_offset" SynelTypeUEv
-synelVuiParametersPresentFlag = mkSynel "vui_parameters_present_flag" (SynelTypeUn 1)
+synelProfileIdc = mkSynel "profile_idc" (SynelTypeUn 8) [0]
+synelConstraintSet0Flag = mkSynel "constraint_set0_flag" (SynelTypeUn 1) [0]
+synelConstraintSet1Flag = mkSynel "constraint_set1_flag" (SynelTypeUn 1) [0]
+synelConstraintSet2Flag = mkSynel "constraint_set2_flag" (SynelTypeUn 1) [0]
+synelConstraintSet3Flag = mkSynel "constraint_set3_flag" (SynelTypeUn 1) [0]
+synelConstraintSet4Flag = mkSynel "constraint_set4_flag" (SynelTypeUn 1) [0]
+synelConstraintSet5Flag = mkSynel "constraint_set5_flag" (SynelTypeUn 1) [0]
+synelReservedZero2bits = mkSynelV "reserved_zero_2bits" (SynelTypeUn 2) [0] (==0)
+synelLevelIdc = mkSynel "level_idc" (SynelTypeUn 8) [0]
+synelSeqParameterSetId = mkSynelV "seq_parameter_set_id" SynelTypeUEv [0] (<=31)
+synelChromaFormatIdc = mkSynelV "chroma_format_idc" SynelTypeUEv [0] (<=3)
+synelSeparateColourPlaneFlag = mkSynel "separate_colour_plane_flag" (SynelTypeUn 1) [0]
+synelBitDepthLumaMinus8 = mkSynelV "bit_depth_luma_minus8" SynelTypeUEv [0] (<=6)
+synelBitDepthChromaMinus8 = mkSynelV "bit_depth_chroma_minus8" SynelTypeUEv [0] (<=6)
+synelQpPrimeYZeroTransformBypassFlag = mkSynel "qpprime_y_zero_transform_bypass_flag" (SynelTypeUn 1) [0]
+synelSeqScalingMatrixPresentFlag = mkSynel "seq_scaling_matrix_present_flag" (SynelTypeUn 1) [0]
+synelSeqScalingListPresentFlag = mkSynel "seq_scaling_list_present_flag" (SynelTypeUn 1) [0]
+synelLog2MaxFrameNumMinus4 = mkSynelV "log2_max_frame_num_minus4" SynelTypeUEv [0] (<=12)
+synelPicOrderCntType = mkSynelV "pic_order_cnt_type" SynelTypeUEv [0] (<=2)
+synelLog2MaxPicOrderCntLsbMinus4 = mkSynelV "log2_max_pic_order_cnt_lsb_minus4" SynelTypeUEv [0] (<=12)
+synelDeltaPicOrderAlwaysZeroFlag = mkSynel "delta_pic_order_always_zero_flag" (SynelTypeUn 1) [0]
+synelOffsetForNonRefPic = mkSynelV "offset_for_non_ref_pic" SynelTypeSEv [0] (\x -> x .&. 0xffffffff == x)
+synelOffsetForTopToBottomField = mkSynelV "offset_for_top_to_bottom_field" SynelTypeSEv [0] (\x -> x .&. 0xffffffff == x)
+synelNumRefFramesInPicOrderCntCycle = mkSynelV "num_ref_frames_in_pic_order_cnt_cycle" SynelTypeUEv [0] (<=255)
+synelOffsetForRefFrame = mkSynelV "offset_for_ref_frame" SynelTypeSEv [0] (\x -> x .&. 0xffffffff == x)
+synelMaxNumRefFrames = mkSynel "max_num_ref_frames" SynelTypeUEv [0] -- (<=MaxDpbFrames)
+synelGapsInFrameNumValueAllowedFlag = mkSynel "gaps_in_frame_num_value_allowed_flag" (SynelTypeUn 1) [0]
+synelPicWidthInMbsMinus1 = mkSynel "pic_width_in_mbs_minus1" SynelTypeUEv [0]
+synelPicHeightInMapUnitsMinus1 = mkSynel "pic_height_in_map_units_minus1" SynelTypeUEv [0]
+synelFrameMbsOnlyFlag = mkSynel "frame_mbs_only_flag" (SynelTypeUn 1) [0]
+synelMbAdaptiveFrameFieldFlag = mkSynel "mb_adaptive_frame_field_flag" (SynelTypeUn 1) [0]
+synelDirect8x8InferenceFlag = mkSynel "direct_8x8_inference_flag" (SynelTypeUn 1) [0]
+synelFrameCroppingFlag = mkSynel "frame_cropping_flag" (SynelTypeUn 1) [0]
+synelFrameCropLeftOffset = mkSynel "frame_crop_left_offset" SynelTypeUEv [0]
+synelFrameCropRightOffset = mkSynel "frame_crop_right_offset" SynelTypeUEv [0]
+synelFrameCropTopOffset = mkSynel "frame_crop_top_offset" SynelTypeUEv [0]
+synelFrameCropBottomOffset = mkSynel "frame_crop_bottom_offset" SynelTypeUEv [0]
+synelVuiParametersPresentFlag = mkSynel "vui_parameters_present_flag" (SynelTypeUn 1) [0]
 
 
 
