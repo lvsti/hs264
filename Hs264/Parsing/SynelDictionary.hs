@@ -91,9 +91,13 @@ getSDState = SDParse $ \s -> Right (s, s)
 putSDState :: SDParseState -> SDParse ()
 putSDState s = SDParse $ \_ -> Right ((), s)
 
+failSDParse :: String -> SDParse a
+failSDParse err = SDParse $ \s -> Left $ err ++ " SD:" ++ show (sdpsDict s)
+
+
 instance Monad SDParse where
     return x = SDParse $ \s -> Right (x, s)
-    fail err = SDParse $ \s -> Left err
+    fail = failSDParse
     parse >>= continuation = SDParse bareParse
         where
             bareParse ps =
@@ -121,12 +125,12 @@ parseWith :: (SynelDictionary -> Synel -> Int -> SynelDictionary)
 parseWith sdfun syn =
     getSDState >>= \sdps ->
     (let
-        bitps = sdpsBitPS sdps
+        bps = sdpsBitPS sdps
         bitParse = parseSynel syn
     in
-        case runBitParse bitParse bitps of
+        case runBitParse bitParse bps of
             Left err ->
-                fail $ show syn ++ ": " ++ err
+                failSDParse $ show syn ++ ": " ++ err
             Right (value, bps') ->
                 (let
                     dict' = sdfun (sdpsDict sdps) syn value
