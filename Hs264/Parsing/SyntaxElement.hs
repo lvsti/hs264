@@ -36,29 +36,29 @@ instance Show BitParseState where
 
 newtype BitParse a =
     BitParse {
-        runBitParse :: BitParseState -> Either BitParseError (a, BitParseState)
+        runBP :: BitParseState -> Either BitParseError (a, BitParseState)
     }
 
 
-getBitState :: BitParse BitParseState
-getBitState = BitParse $ \bps -> Right (bps, bps)
+getBPState :: BitParse BitParseState
+getBPState = BitParse $ \bps -> Right (bps, bps)
 
-putBitState :: BitParseState -> BitParse ()
-putBitState bps = BitParse $ \_ -> Right ((), bps)
+putBPState :: BitParseState -> BitParse ()
+putBPState bps = BitParse $ \_ -> Right ((), bps)
 
-failBitParse :: String -> BitParse a
-failBitParse err = BitParse $ \bps -> Left $ err ++ " " ++ show bps
+failBP :: String -> BitParse a
+failBP err = BitParse $ \bps -> Left $ err ++ " " ++ show bps
 
 
 instance Monad BitParse where
     return x = BitParse $ \bps -> Right (x, bps)
-    fail = failBitParse
+    fail = failBP
     parse >>= continuation = BitParse bareParse
         where
             bareParse bps =
-                case runBitParse parse bps of
+                case runBP parse bps of
                     Left err -> Left err
-                    Right (x, bps') -> runBitParse (continuation x) bps'
+                    Right (x, bps') -> runBP (continuation x) bps'
 
 
 
@@ -108,20 +108,20 @@ synelFunction SynelTypeUEv = parseUEv
 
 
 parseAEv :: SynelParse
-parseAEv = failBitParse "AE(v) not implemented"
+parseAEv = failBP "AE(v) not implemented"
 
 parseB8 :: SynelParse
 parseB8 = parseFn 8
 
 parseCEv :: SynelParse
-parseCEv = failBitParse "CE(v): not implemented"
+parseCEv = failBP "CE(v): not implemented"
 
 -- spec 7.2
 parseFn :: Int -> SynelParse
 parseFn n
-    | n > kMaxSynelBits = failBitParse $ "F(n): integer overflow (" ++ show n ++ ">" ++ show kMaxSynelBits ++ ")"
+    | n > kMaxSynelBits = failBP $ "F(n): integer overflow (" ++ show n ++ ">" ++ show kMaxSynelBits ++ ")"
     | otherwise =
-        getBitState >>= \bps ->
+        getBPState >>= \bps ->
         (let
             bt = bpsBits bps
             remaining = BTL.length bt
@@ -132,10 +132,10 @@ parseFn n
             }
         in
             if remaining >= n then
-                putBitState bps' >>
+                putBPState bps' >>
                 return value
             else
-                failBitParse $ "F(n): unexpected end-of-stream (expected:" ++ show n ++ ", remaining:" ++ show remaining ++ ")"
+                failBP $ "F(n): unexpected end-of-stream (expected:" ++ show n ++ ", remaining:" ++ show remaining ++ ")"
         )
 
 -- spec 7.2
@@ -146,7 +146,7 @@ parseIn n =
 
 -- spec 9.1.2
 parseMEv :: SynelParse
-parseMEv = failBitParse "ME(v): use UE(v) and refer to 9.1.2 for the mapping"
+parseMEv = failBP "ME(v): use UE(v) and refer to 9.1.2 for the mapping"
 
 -- spec 9.1.1
 parseSEv :: SynelParse
@@ -163,7 +163,7 @@ parseSEv =
 parseTEv :: Int -> SynelParse
 parseTEv range
 	| range > 1 = parseUEv
-    | range < 1 = failBitParse $ "TE(v): invalid range (" ++ show range ++ ")"
+    | range < 1 = failBP $ "TE(v): invalid range (" ++ show range ++ ")"
 	| otherwise =
         parseFn 1 >>= \value ->
         return (1-value)
@@ -175,7 +175,7 @@ parseUn = parseFn
 -- spec 9.1
 parseUEv :: SynelParse
 parseUEv = 
-    getBitState >>= \bps ->
+    getBPState >>= \bps ->
     (let
         bt = bpsBits bps
         (prefix, suffix) = BTL.span (==False) bt
@@ -189,10 +189,10 @@ parseUEv =
         }
     in
         if BTL.length suffix > leadingZeroBits then
-            putBitState bps' >>
+            putBPState bps' >>
             return value
         else
-            failBitParse "UE(v): incomplete exp-Golomb codeword"
+            failBP "UE(v): incomplete exp-Golomb codeword"
     )
 
 
@@ -238,5 +238,5 @@ parseSynel syn =
 	if (synelValidator syn) value then
 		return value
 	else
-		failBitParse $ "validation of synel '" ++ show syn ++ "' failed, value = " ++ show value
+		failBP $ "validation of synel '" ++ show syn ++ "' failed, value = " ++ show value
 
