@@ -1,69 +1,16 @@
 -- Hs264.Parsing.SyntaxElement
 
 module Hs264.Parsing.SyntaxElement (
-    BitParseError,
-    BitParseState,
-    BitParse,
-    runBitParse,
     Synel,
+    SynelType(..),
     mkSynel,
     mkSynelV,
     parseSynel
     ) where
 
-import Control.Monad.Identity
-import Control.Monad.Trans.Either
-import Control.Monad.Trans.State
 import Data.Bits
 import qualified Data.Bitstream.Lazy as BTL
-
--- big endian bitstream
-type BitstreamBE = BTL.Bitstream BTL.Right
-
-
-kMaxSynelBits :: Int
-kMaxSynelBits = bitSize (undefined :: Int)
-
-bitsToInt :: Int -> BitstreamBE -> Int
-bitsToInt n bt = (BTL.toBits :: BitstreamBE -> Int) $ BTL.take n bt
-
-extendSign :: (Integral a) => Int -> Int -> a
-extendSign n nBitValue = if isNegative then fromIntegral (-baseValue) else fromIntegral baseValue
-    where
-        isNegative = testBit nBitValue (n-1)
-        baseValue = clearBit nBitValue (n-1)
-
-
-type BitParseError = String
-
-data BitParseState =
-    BitParseState {
-        bpsBits :: BitstreamBE,
-        bpsOffset :: Int
-    }
-
-instance Show BitParseState where
-    show bps = "<ofs:" ++ show (bpsOffset bps) ++ ">"
-
-
-type BitParse = StateT BitParseState (EitherT BitParseError Identity)
-
-runBitParse :: BitParse a -> BitParseState -> Either BitParseError (a, BitParseState)
-runBitParse p bps = runIdentity $ runEitherT $ runStateT p bps
-
-
-getBPState :: BitParse BitParseState
-getBPState = get
-
-putBPState :: BitParseState -> BitParse ()
-putBPState = put
-
-failBP :: String -> BitParse a
-failBP err = StateT $ \bps -> EitherT $ return $ Left $ err ++ " " ++ show bps
-
-
-type SynelParse = BitParse Int
-
+import Hs264.Parsing.BitParse
 
 
 ------------------------------------------------------------------------------
@@ -82,16 +29,73 @@ data SynelType = SynelTypeAEv
                deriving (Eq)
 
 instance Show SynelType where
-	show SynelTypeAEv = "ae(v)"
-	show SynelTypeB8 = "b(8)"
-	show SynelTypeCEv = "ce(v)"
-	show (SynelTypeFn n) = "f(" ++ show n ++ ")"
-	show (SynelTypeIn n) = "i(" ++ show n ++ ")"
-	show SynelTypeMEv = "me(v)"
-	show SynelTypeSEv = "se(v)"
-	show (SynelTypeTEv r) = "te(v|" ++ show r ++ ")"
-	show (SynelTypeUn n) = "u(" ++ show n ++ ")"
-	show SynelTypeUEv = "ue(v)"
+    show SynelTypeAEv = "ae(v)"
+    show SynelTypeB8 = "b(8)"
+    show SynelTypeCEv = "ce(v)"
+    show (SynelTypeFn n) = "f(" ++ show n ++ ")"
+    show (SynelTypeIn n) = "i(" ++ show n ++ ")"
+    show SynelTypeMEv = "me(v)"
+    show SynelTypeSEv = "se(v)"
+    show (SynelTypeTEv r) = "te(v|" ++ show r ++ ")"
+    show (SynelTypeUn n) = "u(" ++ show n ++ ")"
+    show SynelTypeUEv = "ue(v)"
+
+
+------------------------------------------------------------------------------
+-- Syntax element data type
+------------------------------------------------------------------------------
+
+data Synel =
+    SynelCTOR {
+        synelName :: String,
+        synelType :: SynelType,
+        synelCategories :: [Int],
+        synelValidator :: Int -> Bool
+    }
+
+instance Eq Synel where
+    s1 == s2 = synelName s1 == synelName s2
+
+instance Ord Synel where
+    compare s1 s2 = compare (synelName s1) (synelName s2)
+    (<) s1 s2 = (<) (synelName s1) (synelName s2)
+    (>) s1 s2 = (>) (synelName s1) (synelName s2)
+
+instance Show Synel where
+    show syn = show (synelName syn) ++ " C" ++ show (synelCategories syn) ++ " :: " ++ show (synelType syn)
+
+
+mkSynel :: String -> SynelType -> [Int] -> Synel
+mkSynel sn st cat =
+    SynelCTOR {
+        synelName = sn,
+        synelType = st,
+        synelCategories = cat,
+        synelValidator = const True
+    }
+
+
+mkSynelV :: String -> SynelType -> [Int] -> (Int -> Bool) -> Synel
+mkSynelV sn st cat sv = baseSynel { synelValidator = sv }
+    where
+        baseSynel = mkSynel sn st cat
+
+
+
+------------------------------------------------------------------------------
+-- Syntax element parsing
+------------------------------------------------------------------------------
+
+type SynelParse = BitParse Int
+
+
+parseSynel :: Synel -> SynelParse
+parseSynel syn = do
+    value <- synelFunction (synelType syn)
+    if (synelValidator syn) value then
+        return value
+    else
+        failBP $ "validation of synel '" ++ show syn ++ "' failed, value = " ++ show value
 
 
 synelFunction :: SynelType -> SynelParse
@@ -188,50 +192,20 @@ parseUEv = do
         failBP "UE(v): incomplete exp-Golomb codeword"
 
 
+
 ------------------------------------------------------------------------------
--- Syntax element data type
+-- Helper functions
 ------------------------------------------------------------------------------
 
-data Synel =
-    SynelCTOR {
-        synelName :: String,
-        synelType :: SynelType,
-        synelCategories :: [Int],
-        synelValidator :: Int -> Bool
-    }
+kMaxSynelBits :: Int
+kMaxSynelBits = bitSize (undefined :: Int)
 
-instance Eq Synel where
-    s1 == s2 = synelName s1 == synelName s2
+bitsToInt :: Int -> BitstreamBE -> Int
+bitsToInt n bt = (BTL.toBits :: BitstreamBE -> Int) $ BTL.take n bt
 
-instance Ord Synel where
-    compare s1 s2 = compare (synelName s1) (synelName s2)
-    (<) s1 s2 = (<) (synelName s1) (synelName s2)
-    (>) s1 s2 = (>) (synelName s1) (synelName s2)
-
-instance Show Synel where
-    show syn = show (synelName syn) ++ " C" ++ show (synelCategories syn) ++ " :: " ++ show (synelType syn)
-
-
-mkSynel :: String -> SynelType -> [Int] -> Synel
-mkSynel sn st cat =
-    SynelCTOR {
-        synelName = sn,
-        synelType = st,
-        synelCategories = cat,
-        synelValidator = const True
-    }
-
-mkSynelV :: String -> SynelType -> [Int] -> (Int -> Bool) -> Synel
-mkSynelV sn st cat sv = baseSynel { synelValidator = sv }
+extendSign :: (Integral a) => Int -> Int -> a
+extendSign n nBitValue = if isNegative then fromIntegral (-baseValue) else fromIntegral baseValue
     where
-        baseSynel = mkSynel sn st cat
-
-
-parseSynel :: Synel -> SynelParse
-parseSynel syn = do
-    value <- synelFunction (synelType syn)
-    if (synelValidator syn) value then
-        return value
-    else
-        failBP $ "validation of synel '" ++ show syn ++ "' failed, value = " ++ show value
+        isNegative = testBit nBitValue (n-1)
+        baseValue = clearBit nBitValue (n-1)
 
